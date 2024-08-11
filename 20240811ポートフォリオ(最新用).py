@@ -310,7 +310,7 @@ if 'merged_df' in locals():
     st.pyplot(fig)
 
 
-%%writefile -a app.py
+
 # 機能2: データの可視化
 
 
