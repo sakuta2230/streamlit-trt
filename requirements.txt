@@ -5,6 +5,6 @@ numpy==1.23.2  # pandasと互換性のあるバージョン
 seaborn==0.13.2
 scikit-learn==1.5.1
 chardet==5.2.0
-setuptools==58.0.0  # 適切なバージョンに調整する必要があるかもしれません
+setuptools==65.5.0  # 適切なバージョンに調整する必要があるかもしれません
 
 
