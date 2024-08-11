@@ -1,7 +1,3 @@
-from google.colab import drive
-drive.mount('/content/drive')#ドライブの中の
-
-
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -739,12 +735,6 @@ if uploaded_files:
             st.write(merged_df)
         elif len(selected_columns_dfs) == 1:
             st.write("1つのファイルがアップロードされました。処理を続行してください。")
-
-
-!jupyter nbconvert --to script "/content/drive/MyDrive/Colab Notebooks/20240811ポートフォリオ(最新用).ipynb" --output "/content/drive/MyDrive/Colab Notebooks/20240811ポートフォリオ(最新用)"
-
-
-
 
 
 
