@@ -1,0 +1,760 @@
+from google.colab import drive
+drive.mount('/content/drive')#ドライブの中の
+
+!pip install streamlit==1.20.0 --quiet
+!pip install  japanize_matplotlib
+
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import japanize_matplotlib
+import io
+import numpy as np
+import seaborn as sns
+import chardet
+from sklearn.preprocessing import StandardScaler
+from sklearn.cross_decomposition import PLSRegression
+
+
+# データフレームの作成（ここではdfという名前のデータフレームとしま
+
+# 各列の情報をまとめる表を作成
+
+# 日本語フォントの設定
+
+def summary(df):
+
+    summary_table = pd.DataFrame(columns=['Column', 'Data Type', 'Count', 'Min', 'Max', 'Missing'])
+
+    for col in df.columns:
+        data_type = df[col].dtype
+        count = df[col].count()
+        min_val = df[col].min()
+        max_val = df[col].max()
+        missing = df[col].isnull().sum()
+
+        summary_table = summary_table.append({
+            'Column': col,
+            'Data Type': data_type,
+            'Count': count,
+            'Min': min_val,
+            'Max': max_val,
+            'Missing': missing
+        }, ignore_index=True)
+
+    # 表を描画
+    plt.figure(figsize=(20, 18))
+    plt.axis('off')
+    plt.table(cellText=summary_table.values,
+              colLabels=summary_table.columns,
+              loc='center')
+    plt.title('Summary Table')
+    plt.show()
+
+
+
+@st.cache
+def load_data(file):
+    data = file.getvalue().decode('shift-jis')
+    return pd.read_csv(io.StringIO(data))
+
+
+# タイトル
+st.title("Streamlitアプリケーション")
+
+# サイドバーに機能選択ボックスを表示
+page = st.sidebar.selectbox("ページを選択してください", ["機能1", "機能2", "機能3","機能4","機能5","機能6","機能7","機能8","コード表示"])
+
+if page == "機能1":
+    st.header("機能1: CSVファイル統合")
+
+
+
+
+
+
+
+# ファイルをアップロードされたファイルを格納するリスト
+dfs = []
+cleaned_dfs = []
+header_set_dfs = []
+selected_columns_dfs = []
+
+def make_unique(column_names):
+    seen = set()
+    new_columns = []
+    for col in column_names:
+        if col in seen:
+            counter = 1
+            new_col = f"{col}.{counter}"
+            while new_col in seen:
+                counter += 1
+                new_col = f"{col}.{counter}"
+            seen.add(new_col)
+            new_columns.append(new_col)
+        else:
+            seen.add(col)
+            new_columns.append(col)
+    return new_columns
+
+def remove_unnecessary_rows(df):
+    df = df.dropna(how='all')  # すべての要素がNaNの行を削除
+    df = df[~df.apply(lambda row: row.astype(str).str.contains('タイトル|不要な行').any(), axis=1)]  # 特定のキーワードを含む行を削除
+    return df
+
+def combine_datetime(df, datetime_columns, date_format_info):
+    df['datetime'] = pd.NaT
+    for index, row in df.iterrows():
+        datetime_str = ''
+        for info in date_format_info:
+            if info['col'] is None:
+                datetime_str += info['default']
+            else:
+                col_data = str(row[info['col']])
+                if info['start'] is not None and info['end'] is not None:
+                    col_data = col_data[info['start']:info['end']]
+                datetime_str += col_data
+        try:
+            df.at[index, 'datetime'] = pd.to_datetime(datetime_str, format=''.join([f['format'] for f in date_format_info]))
+        except Exception as e:
+            st.error(f"行 {index} の日時変換に失敗しました: {e}")
+    # 選択した列を削除
+    for info in date_format_info:
+        if info['col'] is not None:
+            df = df.drop(columns=[info['col']])
+    return df
+
+def upload_and_process_file(key, file):
+    data = file.getvalue().decode('shift-jis')
+    header_row = st.selectbox(f"{file.name}のヘッダー行の位置を選択してください", options=list(range(10)), index=1, key=f"header_row_{key}")
+    df = pd.read_csv(io.StringIO(data), header=header_row)
+    df = remove_unnecessary_rows(df)
+    st.subheader(f"アップロードされたファイル: {file.name}")
+    st.write(df)
+
+    drop_rows = st.multiselect(f"{file.name} の削除したい行を選択してください", df.index.tolist(), key=f"drop_rows_{key}")
+    cleaned_df = df.drop(drop_rows) if drop_rows else df.copy()
+    st.write(f"行を削除した後のファイル: {file.name}")
+    st.write(cleaned_df)
+
+    cleaned_df.columns = make_unique(cleaned_df.columns)
+    st.write(f"列名を設定した後のファイル: {file.name}")
+    st.write(cleaned_df)
+
+    columns_to_keep = st.multiselect(f"{file.name} の保持したい列を選択してください", cleaned_df.columns.tolist(), default=cleaned_df.columns.tolist(), key=f"columns_to_keep_{key}")
+    df_final = cleaned_df[columns_to_keep] if columns_to_keep else cleaned_df.copy()
+    st.write(f"列を選択した後のファイル: {file.name}")
+    st.write(df_final)
+
+    return df_final, key
+
+def process_datetime_selection(df_final, datetime_columns_key, date_format_info_key_prefix):
+    datetime_columns = st.multiselect("日時を表す列を選択してください", df_final.columns.tolist(), key=datetime_columns_key)
+
+    date_format_info = []
+    time_units = ['年', '月', '日', '時', '分', '秒']
+
+    for unit in time_units:
+        col = st.selectbox(f"{unit}を表す列を選択してください（指定なしの場合はデフォルト値）", options=[None] + datetime_columns, key=f"{unit}_column_{date_format_info_key_prefix}")
+        if col is not None:
+            col_format = st.selectbox(f"{col} 列の形式を選択してください", options=['%Y', '%m', '%d', '%H', '%M', '%S'], key=f"{col}_format_{date_format_info_key_prefix}")
+            start_pos = st.number_input(f"{col} 列の開始位置（0ベース）を指定してください", min_value=0, key=f"{col}_start_{date_format_info_key_prefix}")
+            end_pos = st.number_input(f"{col} 列の終了位置（0ベース）を指定してください", min_value=start_pos, key=f"{col}_end_{date_format_info_key_prefix}")
+            date_format_info.append({'format': col_format, 'start': int(start_pos), 'end': int(end_pos), 'col': col, 'default': ''})
+        else:
+            default_value = st.text_input(f"{unit}のデフォルト値を入力してください（年は4桁、他は2桁）", value="1970" if unit == '年' else "01", max_chars=4 if unit == '年' else 2, key=f"{unit}_default_{date_format_info_key_prefix}")
+            date_format_info.append({'format': default_value, 'start': None, 'end': None, 'col': None, 'default': default_value})
+
+    return date_format_info, datetime_columns
+
+# Primary file processing
+primary_file = st.file_uploader("Primaryファイルをアップロードしてください", type=['csv'], key="primary")
+
+if primary_file:
+    primary_df_final, primary_key = upload_and_process_file("primary", primary_file)
+
+    if primary_df_final is not None:
+        primary_date_format_info, primary_datetime_columns = process_datetime_selection(primary_df_final, "datetime_columns_primary", "primary")
+
+        if st.button("日時列を統一 (Primary)"):
+            primary_df_final = combine_datetime(primary_df_final, primary_datetime_columns, primary_date_format_info)
+            st.write(f"日時列を統一した後のファイル: {primary_key}")
+            st.write(primary_df_final)
+
+# Additional files processing
+additional_files = st.file_uploader("追加のファイルをアップロードしてください", type=['csv'], accept_multiple_files=True, key="additional_files")
+
+additional_dfs = []
+for i, file in enumerate(additional_files):
+    if file:
+        additional_df_final, additional_key = upload_and_process_file(f"additional_{i}", file)
+
+        if additional_df_final is not None:
+            additional_date_format_info, additional_datetime_columns = process_datetime_selection(additional_df_final, f"datetime_columns_additional_{i}", f"additional_{i}")
+
+            if st.button(f"日時列を統一 (Additional {i+1})"):
+                additional_df_final = combine_datetime(additional_df_final, additional_datetime_columns, additional_date_format_info)
+                st.write(f"日時列を統一した後のファイル: {additional_key}")
+                st.write(additional_df_final)
+                additional_dfs.append(additional_df_final)
+
+if st.button("ファイルを結合"):
+    if primary_df_final is not None and additional_dfs:
+        all_dfs = [primary_df_final] + additional_dfs
+        for df in all_dfs:
+            if 'datetime' not in df.columns:
+                st.error("全てのファイルに'datetime'列が含まれていることを確認してください。")
+                st.stop()
+        merged_df = pd.concat(all_dfs, ignore_index=True).sort_values(by='datetime').reset_index(drop=True)
+        st.subheader("結合後のデータ（時系列順）")
+        st.write(merged_df)
+    else:
+        st.error("少なくとも1つの追加ファイルが必要です。")
+
+
+
+
+    # 目的変数が含まれたCSVファイルのアップロード
+    target_file = st.file_uploader("目的変数が含まれたCSVファイルをアップロードしてください", type=['csv'], key="target_file")
+
+    if target_file:
+        skip_rows = st.number_input("削除する行数を入力してください", min_value=0, value=0, step=1)
+        target_data = target_file.getvalue().decode('shift-jis')
+
+        raw_target_df = pd.read_csv(io.StringIO(target_data), header=None, error_bad_lines=False, warn_bad_lines=True)
+        st.subheader("ヘッダー除去前のデータ")
+        st.write(raw_target_df)
+
+        target_df = pd.read_csv(io.StringIO(target_data), header=skip_rows, error_bad_lines=False, warn_bad_lines=True)
+        st.subheader("ヘッダー除去後のデータ")
+        st.write(target_df)
+
+        date_column = st.selectbox("目的変数ファイルのDATE列を選択してください", target_df.columns.tolist(), key="date_column")
+        time_column = st.selectbox("目的変数ファイルのTIME列を選択してください", target_df.columns.tolist(), key="time_column")
+        target_df['datetime'] = pd.to_datetime(target_df[date_column] + ' ' + target_df[time_column], errors='coerce')
+        target_df = target_df.drop(columns=[date_column, time_column])
+
+        st.subheader("目的変数が含まれたデータ（datetime列追加後）")
+        st.write(target_df)
+
+        new_columns = []
+        for col in target_df.columns:
+            new_col_name = st.text_input(f"列 '{col}' の新しい名前を入力してください", value=col)
+            new_columns.append(new_col_name)
+        target_df.columns = new_columns
+
+        common_column = st.selectbox("結合に使用する列を選択してください", options=target_df.columns.tolist(), key="common_column")
+
+        if all(common_column in df.columns for df in selected_columns_dfs):
+            merged_df = target_df
+            for df in selected_columns_dfs:
+                merged_df = pd.merge(merged_df, df, on=common_column, how="outer")
+
+            st.subheader("結合後のデータ")
+            st.write(merged_df)
+
+            csv = merged_df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(label="結合データをCSVとしてダウンロード", data=csv, file_name='merged_data.csv', mime='text/csv')
+        else:
+            st.error("選択された列名はすべてのファイルに存在しません。再選択してください。")
+
+    elif page == "機能2":
+          st.header("機能2: データの可視化")
+          # 機能2のコードをここに記述
+          st.write("ここにデータの可視化機能のコードを記述します。")
+
+    elif page == "機能3":
+          st.header("機能3: モデルのトレーニング")
+          # 機能3のコードをここに記述
+          st.write("ここにモデルのトレーニング機能のコードを記述します。")
+    elif page == "コード表示":
+          st.header("コード表示")
+
+          # 現在のスクリプトファイルを読み込んで表示
+          with open(__file__, 'r', encoding='utf-8') as f:
+              code = f.read()
+
+          st.code(code, language='python')
+
+
+
+
+# 目的変数が含まれたCSVファイルを読み込む部分は省略
+
+# 統合後のデータ
+if 'merged_df' in locals():
+    df3 = merged_df.copy()
+
+    # '年月日時'をインデックスに設定
+    if '年月日時' in df3.columns:
+        df3.set_index('年月日時', inplace=True)
+
+    # 目的変数の設定
+    target_var = st.selectbox('目的変数を選択してください', df3.columns)
+
+    # グラフの数とレイアウトの設定
+    num_vars = len(df3.columns)
+    fig, axes = plt.subplots(nrows=num_vars, ncols=2, figsize=(15, 5 * num_vars), sharex='col')
+
+    # 時系列データのプロット
+    for i, col in enumerate(df3.columns):
+        axes[i, 0].plot(df3.index, df3[col], label=col)
+        axes[i, 0].set_title(f'{col} の時系列データ')
+        axes[i, 0].set_ylabel(col)
+        axes[i, 0].legend()
+
+    # 相関係数の計算と相関グラフのプロット
+    for i, col in enumerate(df3.columns):
+        if col != target_var:
+          valid_data = df3[[col, target_var]].dropna()
+          correlation = df3[target_var].corr(df3[col])
+          axes[i, 1].scatter(df3[col], df3[target_var])
+          axes[i, 1].set_title(f'{col} と {target_var} の相関 (r={correlation:.2f})')
+          axes[i, 1].set_xlabel(col)
+          axes[i, 1].set_ylabel(target_var)
+            # 相関係数の表示
+          for x, y in zip(df3[col], df3[target_var]):
+                axes[i, 1].text(x, y, f'{correlation:.2f}', fontsize=8, alpha=0.5)
+
+    # タイトルとレイアウト調整
+    fig.suptitle('時系列データと相関グラフ', fontsize=16)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.97])
+
+    # グラフをStreamlitに表示
+    st.pyplot(fig)
+
+
+%%writefile -a app.py
+# 機能2: データの可視化
+
+
+def read_csv_with_encoding(uploaded_file, encoding):
+    try:
+        return pd.read_csv(uploaded_file, encoding=encoding)
+    except (UnicodeDecodeError, pd.errors.EmptyDataError) as e:
+        st.write(f"{encoding}での読み込み中にエラーが発生しました: {e}")
+        return None
+
+if page == "機能2":
+    st.header("機能2: データの基本情報、基本統計量")
+
+    # ファイルアップローダー
+    uploaded_file = st.file_uploader("CSVファイルをアップロードしてください", type=['csv'])
+
+    if uploaded_file:
+        # ファイルのバイナリデータを読み込む
+        raw_data = uploaded_file.getvalue()
+
+        # エンコーディングの検出
+        result = chardet.detect(raw_data)
+        detected_encoding = result['encoding']
+        st.write(f"検出されたエンコーディング: {detected_encoding}")
+
+        # ユーザーにエンコーディングを選択させる
+        encodings_to_try = [detected_encoding, 'utf-8-sig', 'shift-jis', 'Windows-1252', 'MacRoman']
+        manual_encoding = st.selectbox("手動でエンコーディングを選択してください", encodings_to_try)
+
+        # 選択されたエンコーディングでデータを読み込む
+        df = read_csv_with_encoding(uploaded_file, manual_encoding)
+        if df is not None:
+            st.write(f"選択された{manual_encoding}エンコーディングで読み込み成功")
+        else:
+            st.error(f"{manual_encoding}エンコーディングでも読み込みに失敗しました。")
+
+        if df is not None:
+            # データの基本情報の表示
+            st.subheader("データの基本情報")
+            st.write("データの型:")
+            st.write(df.dtypes)
+            st.write("欠損値の数:")
+            st.write(df.isnull().sum())
+            st.write("データの基本統計量:")
+            st.write(df.describe())
+
+            # 各列のヒストグラムの表示
+            st.subheader("各列のヒストグラム")
+            for col in df.select_dtypes(include=[np.number]).columns:
+                fig, ax = plt.subplots()
+                sns.histplot(df[col], kde=True, ax=ax)
+                ax.set_title(f"{col} のヒストグラム")
+                st.pyplot(fig)
+
+            # 欠損値の処理
+            st.subheader("欠損値の処理")
+            missing_option = st.selectbox("欠損値をどのように処理しますか？", ["平均値で埋める", "欠損値がある行を削除する"])
+
+            if missing_option == "平均値で埋める":
+                df = df.fillna(df.mean())
+            elif missing_option == "欠損値がある行を削除する":
+                df = df.dropna()
+
+            st.write("欠損値処理後のデータ")
+            st.write(df)
+
+            # 加工されたファイルをCSVとして保存する機能
+            csv = df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(label="加工されたデータをCSVとしてダウンロード", data=csv, file_name='processed_data.csv', mime='text/csv')
+
+
+
+if page == "機能4":
+    st.header("機能4: 目的変数の時間をずらして相関関係を確認")
+
+    # ファイルアップローダー
+    uploaded_file = st.file_uploader("CSVファイルをアップロードしてください", type=['csv'])
+
+    if uploaded_file:
+        # UTF-8-SIGエンコーディングでCSVを読み込む
+        df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
+
+        # 各列に欠損値があるかどうかを確認
+        st.subheader("各列の欠損値の数")
+        st.write(df.isnull().sum())
+
+        # 列の中から目的変数を選ぶ
+        target_var = st.selectbox('目的変数を選択してください', df.columns)
+
+        # 時間を表す列をインデックスにセットする機能
+        time_column = st.selectbox('時間を表す列を選択してください', df.columns)
+        df[time_column] = pd.to_datetime(df[time_column], errors='coerce')
+        df.set_index(time_column, inplace=True)
+
+        # 列の中から表示させる説明変数を選ぶ
+        explanatory_var = st.selectbox('表示させる説明変数を選択してください', df.columns[df.columns != target_var])
+
+        # スライドバーで時間をずらす（単位: 時間）
+        time_lag = st.slider('目的変数の時間をずらす量（単位: 時間）', min_value=-24, max_value=24, value=0, step=1)
+
+        # 目的変数の時間をずらす
+        shifted_target = df[target_var].shift(periods=time_lag, freq='H')
+
+        # 時系列グラフと相関関係のグラフ
+        st.subheader(f"{explanatory_var} の時系列グラフと相関関係（時間遅れ: {time_lag} 時間）")
+
+        fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(20, 5))
+
+        # 時系列グラフ
+        axes[0].plot(df.index, df[explanatory_var], label=explanatory_var)
+        axes[0].set_title(f'{explanatory_var} の時系列データ')
+        axes[0].set_ylabel(explanatory_var)
+        axes[0].legend()
+
+        # 相関関係のグラフ
+        valid_data = pd.concat([df[explanatory_var], shifted_target], axis=1).dropna()
+        correlation = valid_data[target_var].corr(valid_data[explanatory_var])
+        axes[1].scatter(valid_data[explanatory_var], valid_data[target_var], alpha=0.5)
+        axes[1].set_title(f'{explanatory_var} と {target_var} の相関 (r={correlation:.2f})')
+        axes[1].set_xlabel(explanatory_var)
+        axes[1].set_ylabel(target_var)
+
+        plt.tight_layout()
+        st.pyplot(fig)
+
+        st.subheader("相互相関のプロット")
+        cross_corr = [df[target_var].corr(df[explanatory_var].shift(lag)) for lag in range(-24, 25)]
+        lags = range(-24, 25)
+
+        fig2, ax2 = plt.subplots(figsize=(10, 5))
+        ax2.plot(lags, cross_corr, marker='o')
+        ax2.set_xlabel('時間遅れ (時間)')
+        ax2.set_ylabel('相互相関')
+        ax2.set_title('相互相関のプロット')
+        ax2.axhline(0, color='black',linewidth=0.5)
+        ax2.axhline(0.2, color='red', linestyle='--', linewidth=0.5)
+        ax2.axhline(-0.2, color='red', linestyle='--', linewidth=0.5)
+        ax2.axvline(0, color='black',linewidth=0.5)
+        st.pyplot(fig2)
+
+
+if page == "機能5":
+    st.header("機能5: カテゴリ変数ごとに目的変数の箱ひげ図を表示")
+
+    # ファイルアップローダー
+    uploaded_file = st.file_uploader("CSVファイルをアップロードしてください", type=['csv'])
+
+    if uploaded_file:
+        # UTF-8-SIGエンコーディングでCSVを読み込む
+        df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
+
+        # 各列に欠損値があるかどうかを確認
+        st.subheader("各列の欠損値の数")
+        st.write(df.isnull().sum())
+
+        # カテゴリ変数と目的変数を選ぶ
+        category_var = st.selectbox('カテゴリ変数を選択してください', df.columns)
+        target_var = st.selectbox('目的変数を選択してください', df.columns)
+
+        if category_var and target_var:
+            st.subheader(f"{category_var} ごとの {target_var} の箱ひげ図")
+
+            fig, ax = plt.subplots(figsize=(10, 6))
+            sns.boxplot(x=df[category_var], y=df[target_var], ax=ax)
+            ax.set_title(f'{category_var} ごとの {target_var} の箱ひげ図')
+            ax.set_xlabel(category_var)
+            ax.set_ylabel(target_var)
+            st.pyplot(fig)
+
+
+# 機能6: 移動平均と移動分散の可視化
+if page == "機能6":
+    st.header("機能6: 移動平均と移動分散の可視化")
+
+    # ファイルアップローダー
+    uploaded_file = st.file_uploader("CSVファイルをアップロードしてください", type=['csv'])
+
+    if uploaded_file:
+        # UTF-8-SIGエンコーディングでCSVを読み込む
+        df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
+
+        # 時間を表す列をインデックスにセットする機能
+        time_column = st.selectbox('時間を表す列を選択してください', df.columns)
+        df[time_column] = pd.to_datetime(df[time_column], errors='coerce')
+        df.set_index(time_column, inplace=True)
+
+        # データの時刻の最小値と最大値を表示
+        min_time = df.index.min()
+        max_time = df.index.max()
+        st.write(f"データの時刻の範囲: {min_time} から {max_time}")
+
+        # Timestamp型をdatetime型に変換
+        min_time = min_time.to_pydatetime()
+        max_time = max_time.to_pydatetime()
+
+        # 分析する期間を指定
+        start_time = st.slider("開始時刻を選択してください", min_value=min_time, max_value=max_time, value=min_time, format="YYYY-MM-DD HH:mm")
+        end_time = st.slider("終了時刻を選択してください", min_value=min_time, max_value=max_time, value=max_time, format="YYYY-MM-DD HH:mm")
+
+        # 指定した期間のデータをフィルタリング
+        df = df.loc[start_time:end_time]
+
+        # 指定した期間のデータの確認
+        st.write(f"指定した期間のデータ数: {len(df)}")
+        st.write(df.head())
+
+        # 移動平均と移動分散を計算する列を選択
+        target_var = st.selectbox('移動平均と移動分散を計算する列を選択してください', df.columns)
+
+        # ウィンドウサイズを指定
+        window_size = st.number_input('ウィンドウサイズを指定してください', min_value=1, value=5, step=1)
+
+        # 移動平均と移動分散を計算
+        df['Moving Average'] = df[target_var].rolling(window=window_size).mean()
+        df['Moving Variance'] = df[target_var].rolling(window=window_size).var()
+
+        # 移動平均の時系列グラフ
+        st.subheader(f"{target_var} の移動平均")
+        fig1, ax1 = plt.subplots(figsize=(15, 5))
+
+        ax1.plot(df.index, df[target_var], label=target_var, color='blue', alpha=0.5)
+        ax1.plot(df.index, df['Moving Average'], label='Moving Average', color='green')
+        ax1.set_xlabel('Date')
+        ax1.set_ylabel(target_var, color='blue')
+        ax1.legend(loc='upper left')
+
+        st.pyplot(fig1)
+
+        # 移動分散の時系列グラフ
+        st.subheader(f"{target_var} の移動分散")
+        fig2, ax2 = plt.subplots(figsize=(15, 5))
+
+        ax2.plot(df.index, df[target_var], label=target_var, color='blue', alpha=0.5)
+        ax2.set_xlabel('Date')
+        ax2.set_ylabel(target_var, color='blue')
+        ax2.legend(loc='upper left')
+
+        ax3 = ax2.twinx()
+        ax3.plot(df.index, df['Moving Variance'], label='Moving Variance', color='red')
+        ax3.set_ylabel('Moving Variance', color='red')
+        ax3.legend(loc='upper right')
+
+        st.pyplot(fig2)
+
+
+
+
+# 機能7: PLS分析と説明変数の影響度可視化
+if page == "機能7":
+    st.header("機能7: PLS分析と説明変数の影響度可視化")
+
+    # ファイルアップローダー
+    uploaded_file = st.file_uploader("CSVファイルをアップロードしてください", type=['csv'])
+
+    if uploaded_file:
+        # UTF-8-SIGエンコーディングでCSVを読み込む
+        df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
+
+        # 時間を表す列をインデックスにセットする機能
+        time_column = st.selectbox('時間を表す列を選択してください', df.columns)
+        df[time_column] = pd.to_datetime(df[time_column], errors='coerce')
+        df.set_index(time_column, inplace=True)
+
+        # データの確認
+        st.write(f"データの時刻の範囲: {df.index.min()} から {df.index.max()}")
+        st.write(df.head())
+
+        # 目的変数を選択
+        target_var = st.selectbox('目的変数を選択してください', df.columns)
+
+        # カテゴリ変数を手動で選択して除外
+        category_vars = st.multiselect('カテゴリ変数を選択してください', df.columns.drop(target_var))
+
+        # 説明変数（目的変数、カテゴリ変数、インデックスを除外）
+        explanatory_vars = df.drop(columns=[target_var] + category_vars)
+
+        # 説明変数が選択されているか確認
+        if explanatory_vars.empty:
+            st.error("有効な説明変数がありません。")
+        else:
+           # 標準化
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(explanatory_vars)
+            y_scaled = scaler.fit_transform(df[[target_var]])
+
+            # PLS分析の実行
+            from sklearn.cross_decomposition import PLSRegression
+            pls = PLSRegression(n_components=2)
+            pls.fit(explanatory_vars, df[target_var])
+
+            # 各説明変数の影響度（回帰係数の絶対値の合計）
+            influence = np.sum(np.abs(pls.coef_), axis=1)
+            influence_df = pd.DataFrame({'Variable': explanatory_vars.columns, 'Influence': influence})
+            top5_influence = influence_df.nlargest(5, 'Influence')
+
+            # 影響度の高い説明変数の上位5位の棒グラフ
+            st.subheader("影響度の高い説明変数 上位5位")
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.bar(top5_influence['Variable'], top5_influence['Influence'], color='skyblue')
+            ax.set_xlabel('説明変数')
+            ax.set_ylabel('影響度')
+            ax.set_title('PLS分析による影響度の高い説明変数 上位5位')
+            st.pyplot(fig)
+
+
+
+if page == "機能8":
+    st.header("機能8: csv加工テスト中")
+
+
+
+# ファイルをアップロードされたファイルを格納するリスト
+dfs = []
+cleaned_dfs = []
+header_set_dfs = []
+selected_columns_dfs = []
+
+def make_unique(column_names):
+    seen = set()
+    new_columns = []
+    for col in column_names:
+        if col in seen:
+            counter = 1
+            new_col = f"{col}.{counter}"
+            while new_col in seen:
+                counter += 1
+                new_col = f"{col}.{counter}"
+            seen.add(new_col)
+            new_columns.append(new_col)
+        else:
+            seen.add(col)
+            new_columns.append(col)
+    return new_columns
+
+def remove_unnecessary_rows(df):
+    df = df.dropna(how='all')  # すべての要素がNaNの行を削除
+    df = df[~df.apply(lambda row: row.astype(str).str.contains('タイトル|不要な行').any(), axis=1)]  # 特定のキーワードを含む行を削除
+    return df
+
+def combine_datetime(df, datetime_columns, date_format_info):
+    df['datetime'] = pd.NaT
+    for index, row in df.iterrows():
+        datetime_str = ''
+        for col, format_info in zip(datetime_columns, date_format_info):
+            col_data = str(row[col])
+            if format_info['start'] is not None and format_info['end'] is not None:
+                col_data = col_data[format_info['start']:format_info['end']]
+            datetime_str += col_data
+        try:
+            df.at[index, 'datetime'] = pd.to_datetime(datetime_str, format=''.join([f['format'] for f in date_format_info]))
+        except Exception as e:
+            st.error(f"行 {index} の日時変換に失敗しました: {e}")
+    return df
+
+uploaded_files = st.file_uploader("ファイルをアップロードしてください", type=['csv'], accept_multiple_files=True)
+
+if uploaded_files:
+    primary_file = uploaded_files[0]
+    primary_data = primary_file.getvalue().decode('shift-jis')
+    primary_header_row = st.selectbox(f"{primary_file.name}のヘッダー行の位置を選択してください", options=list(range(10)), index=1, key=f"header_row_{primary_file.name}")
+    primary_df = pd.read_csv(io.StringIO(primary_data), header=primary_header_row)
+    primary_df = remove_unnecessary_rows(primary_df)
+    st.subheader(f"アップロードされたファイル: {primary_file.name}")
+    st.write(primary_df)
+
+    drop_rows = st.multiselect(f"{primary_file.name} の削除したい行を選択してください", primary_df.index.tolist(), key=f"drop_rows_{primary_file.name}")
+    cleaned_primary_df = primary_df.drop(drop_rows) if drop_rows else primary_df.copy()
+    st.write(f"行を削除した後のファイル: {primary_file.name}")
+    st.write(cleaned_primary_df)
+
+    cleaned_primary_df.columns = make_unique(cleaned_primary_df.columns)
+    st.write(f"列名を設定した後のファイル: {primary_file.name}")
+    st.write(cleaned_primary_df)
+
+    columns_to_keep = st.multiselect(f"{primary_file.name} の保持したい列を選択してください", cleaned_primary_df.columns.tolist(), default=cleaned_primary_df.columns.tolist(), key=f"columns_to_keep_{primary_file.name}")
+    primary_df_final = cleaned_primary_df[columns_to_keep] if columns_to_keep else cleaned_primary_df.copy()
+    st.write(f"列を選択した後のファイル: {primary_file.name}")
+    st.write(primary_df_final)
+
+    # 日時に関連する列を手動で選択
+    datetime_columns = st.multiselect("日時を表す列を選択してください", primary_df_final.columns.tolist())
+
+    # 各列の形式を指定
+    date_format_info = []
+    for col in datetime_columns:
+        col_format = st.selectbox(f"{col} 列の形式を選択してください", options=['%Y', '%m', '%d', '%H', '%M', '%S'], key=f"{col}_format")
+        start_pos = st.number_input(f"{col} 列の開始位置（0ベース）を指定してください", min_value=0, key=f"{col}_start")
+        end_pos = st.number_input(f"{col} 列の終了位置（0ベース）を指定してください", min_value=start_pos, key=f"{col}_end")
+        date_format_info.append({'format': col_format, 'start': int(start_pos), 'end': int(end_pos)})
+
+    if st.button("日時列を統一"):
+        primary_df_final = combine_datetime(primary_df_final, datetime_columns, date_format_info)
+        st.write(f"日時列を統一した後のファイル: {primary_file.name}")
+        st.write(primary_df_final)
+
+    additional_files = st.file_uploader("追加のファイルをアップロードしてください", type=['csv'], accept_multiple_files=True, key="additional_files")
+
+    selected_columns_dfs = []
+
+    if additional_files:
+        for uploaded_file in additional_files:
+            data = uploaded_file.getvalue().decode('shift-jis')
+            df = pd.read_csv(io.StringIO(data), header=primary_header_row)
+            df = remove_unnecessary_rows(df)
+
+            cleaned_df = df.drop(drop_rows) if drop_rows else df.copy()
+            cleaned_df.columns = make_unique(cleaned_df.columns)
+            final_df = cleaned_df[columns_to_keep] if columns_to_keep else cleaned_df.copy()
+
+            # 日時列を統一
+            final_df = combine_datetime(final_df, datetime_columns, date_format_info)
+            selected_columns_dfs.append(final_df)
+            st.write(f"前処理後のファイル: {uploaded_file.name}")
+            st.write(final_df)
+
+        selected_columns_dfs.insert(0, primary_df_final)  # 最初のファイルをリストに追加
+
+        if len(selected_columns_dfs) >= 2:
+            merged_df = pd.concat(selected_columns_dfs, ignore_index=True).sort_values(by='datetime').reset_index(drop=True)
+
+            st.subheader("結合後のデータ（時系列順）")
+            st.write(merged_df)
+        elif len(selected_columns_dfs) == 1:
+            st.write("1つのファイルがアップロードされました。処理を続行してください。")
+
+
+!jupyter nbconvert --to script "/content/drive/MyDrive/Colab Notebooks/20240811ポートフォリオ(最新用).ipynb" --output "/content/drive/MyDrive/Colab Notebooks/20240811ポートフォリオ(最新用)"
+
+
+
+
+
+
