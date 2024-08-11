@@ -1,8 +1,6 @@
 from google.colab import drive
 drive.mount('/content/drive')#ドライブの中の
 
-!pip install streamlit==1.20.0 --quiet
-!pip install  japanize_matplotlib
 
 import streamlit as st
 import pandas as pd
@@ -67,11 +65,6 @@ page = st.sidebar.selectbox("ページを選択してください", ["機能1", 
 
 if page == "機能1":
     st.header("機能1: CSVファイル統合")
-
-
-
-
-
 
 
 # ファイルをアップロードされたファイルを格納するリスト
@@ -275,9 +268,6 @@ if st.button("ファイルを結合"):
               code = f.read()
 
           st.code(code, language='python')
-
-
-
 
 # 目的変数が含まれたCSVファイルを読み込む部分は省略
 
