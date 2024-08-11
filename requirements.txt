@@ -1,0 +1,7 @@
+streamlit==1.20.0
+japanize-matplotlib
+pandas
+matplotlib
+seaborn
+chardet
+scikit-learn
