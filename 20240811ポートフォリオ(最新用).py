@@ -138,11 +138,11 @@ if page == "機能1":
     # ファイル処理の開始
     uploaded_files = []
     while True:
-        file_key = f"file_{len(uploaded_files)}"
-        df_final = upload_and_process_file(file_key)
-        
+        file_key = f"file_{len(uploaded_files) + 1}"
+        df_final, key = upload_and_process_file(file_key)
+
         if df_final is not None:
-            uploaded_files.append(df_final)
+            uploaded_files.append((df_final, file_key))
             if st.button("ファイルを追加しますか？", key=f"add_more_{file_key}"):
                 continue
             else:
@@ -152,11 +152,19 @@ if page == "機能1":
 
     if len(uploaded_files) > 1:
         st.subheader("統合設定")
-        common_columns = set.intersection(*(set(df.columns) for df in uploaded_files))
-        merge_column = st.selectbox("結合に使用する列を選択してください", list(common_columns))
+
+        merge_columns = {}
+        for df, key in uploaded_files:
+            merge_columns[key] = st.selectbox(f"{key} の結合に使用する列を選択してください", df.columns.tolist(), key=f"merge_column_{key}")
 
         if st.button("ファイルを結合"):
-            merged_df = pd.concat(uploaded_files, ignore_index=True).sort_values(by=merge_column).reset_index(drop=True)
+            merged_df = uploaded_files[0][0]
+            for df, key in uploaded_files[1:]:
+                merge_column1 = merge_columns[uploaded_files[0][1]]
+                merge_column2 = merge_columns[key]
+                merged_df = pd.merge(merged_df, df, left_on=merge_column1, right_on=merge_column2, how="outer")
+
+            merged_df = merged_df.sort_values(by=merge_columns[uploaded_files[0][1]]).reset_index(drop=True)
             st.subheader("結合後のデータ")
             st.write(merged_df)
 
