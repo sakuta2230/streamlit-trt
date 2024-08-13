@@ -89,19 +89,15 @@ def combine_datetime(df, datetime_columns, date_format_info):
             st.error(f"行 {index} の日時変換に失敗しました: {e}")
     return df
 
-def upload_and_process_file(file_key):
-    file = st.file_uploader("ファイルをアップロードしてください", type=['csv'], key=file_key)
-    if not file:
-        return None
-
+def upload_and_process_file(key, file):
     data = file.getvalue().decode('shift-jis')
-    header_row = st.selectbox(f"{file.name}のヘッダー行の位置を選択してください", options=list(range(10)), index=1, key=f"header_row_{file_key}")
+    header_row = st.selectbox(f"{file.name}のヘッダー行の位置を選択してください", options=list(range(10)), index=1, key=f"header_row_{key}")
     df = pd.read_csv(io.StringIO(data), header=header_row)
     df = remove_unnecessary_rows(df)
-    st.write(f"アップロードされたファイル: {file.name}")
+    st.subheader(f"アップロードされたファイル: {file.name}")
     st.write(df)
 
-    drop_rows = st.multiselect(f"{file.name} の削除したい行を選択してください", df.index.tolist(), key=f"drop_rows_{file_key}")
+    drop_rows = st.multiselect(f"{file.name} の削除したい行を選択してください", df.index.tolist(), key=f"drop_rows_{key}")
     cleaned_df = df.drop(drop_rows) if drop_rows else df.copy()
     st.write(f"行を削除した後のファイル: {file.name}")
     st.write(cleaned_df)
@@ -110,12 +106,13 @@ def upload_and_process_file(file_key):
     st.write(f"列名を設定した後のファイル: {file.name}")
     st.write(cleaned_df)
 
-    columns_to_keep = st.multiselect(f"{file.name} の保持したい列を選択してください", cleaned_df.columns.tolist(), default=cleaned_df.columns.tolist(), key=f"columns_to_keep_{file_key}")
+    columns_to_keep = st.multiselect(f"{file.name} の保持したい列を選択してください", cleaned_df.columns.tolist(), default=cleaned_df.columns.tolist(), key=f"columns_to_keep_{key}")
     df_final = cleaned_df[columns_to_keep] if columns_to_keep else cleaned_df.copy()
     st.write(f"列を選択した後のファイル: {file.name}")
     st.write(df_final)
 
-    return df_final
+    return df_final, key  # 修正: 2つの値を返すように変更
+
 
 
 # タイトル
@@ -139,10 +136,10 @@ if page == "機能1":
     uploaded_files = []
     while True:
         file_key = f"file_{len(uploaded_files) + 1}"
-        df_final, key = upload_and_process_file(file_key)
+        df_final, key = upload_and_process_file(file_key, st.file_uploader(f"ファイルをアップロードしてください ({file_key})", type=['csv'], key=f"uploader_{file_key}"))
 
         if df_final is not None:
-            uploaded_files.append((df_final, file_key))
+            uploaded_files.append((df_final, key))
             if st.button("ファイルを追加しますか？", key=f"add_more_{file_key}"):
                 continue
             else:
