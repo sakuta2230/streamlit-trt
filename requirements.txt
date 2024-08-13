@@ -5,8 +5,8 @@ numpy==1.24.0  # numpyを1.24.0にアップグレード
 seaborn==0.13.2
 scikit-learn==1.5.1
 chardet==5.2.0
-setuptools>=65.5.0  # 最新のセットアップツールをインストール
-wheel>=0.40.0       # setuptoolsと共に必要な場合があるため追加
+setuptools  
+wheel
 
 
 
