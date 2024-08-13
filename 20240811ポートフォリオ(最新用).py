@@ -52,23 +52,6 @@ def load_data(file):
     data = file.getvalue().decode('shift-jis')
     return pd.read_csv(io.StringIO(data))
 
-
-# タイトル
-st.title("Streamlitアプリケーション")
-
-# サイドバーに機能選択ボックスを表示
-page = st.sidebar.selectbox("ページを選択してください", ["機能1", "機能2", "機能3","機能4","機能5","機能6","機能7","機能8","コード表示"])
-
-if page == "機能1":
-    st.header("機能1: CSVファイル統合")
-
-
-# ファイルをアップロードされたファイルを格納するリスト
-dfs = []
-cleaned_dfs = []
-header_set_dfs = []
-selected_columns_dfs = []
-
 def make_unique(column_names):
     seen = set()
     new_columns = []
@@ -91,46 +74,34 @@ def remove_unnecessary_rows(df):
     df = df[~df.apply(lambda row: row.astype(str).str.contains('タイトル|不要な行').any(), axis=1)]  # 特定のキーワードを含む行を削除
     return df
 
-
-
 def combine_datetime(df, datetime_columns, date_format_info):
     df['datetime'] = pd.NaT
-
     for index, row in df.iterrows():
         datetime_str = ''
-        for info in date_format_info:
-            if info['col'] is None:
-                datetime_str += info['default']
-            else:
-                col_data = str(row[info['col']])
-                if info['start'] is not None and info['end'] is not None:
-                    # 複数の開始・終了位置に対応するためにリストを使用
-                    for start, end in zip(info['start'], info['end']):
-                        datetime_str += col_data[start:end]
-                else:
-                    datetime_str += col_data
+        for col, format_info in zip(datetime_columns, date_format_info):
+            col_data = str(row[col])
+            if format_info['start'] is not None and format_info['end'] is not None:
+                col_data = col_data[format_info['start']:format_info['end']]
+            datetime_str += col_data
         try:
             df.at[index, 'datetime'] = pd.to_datetime(datetime_str, format=''.join([f['format'] for f in date_format_info]))
         except Exception as e:
             st.error(f"行 {index} の日時変換に失敗しました: {e}")
-    
-    # 選択した列を削除
-    for info in date_format_info:
-        if info['col'] is not None and info['col'] in df.columns:
-            df = df.drop(columns=[info['col']])
-    
     return df
 
+def upload_and_process_file(file_key):
+    file = st.file_uploader("ファイルをアップロードしてください", type=['csv'], key=file_key)
+    if not file:
+        return None
 
-def upload_and_process_file(key, file):
     data = file.getvalue().decode('shift-jis')
-    header_row = st.selectbox(f"{file.name}のヘッダー行の位置を選択してください", options=list(range(10)), index=1, key=f"header_row_{key}")
+    header_row = st.selectbox(f"{file.name}のヘッダー行の位置を選択してください", options=list(range(10)), index=1, key=f"header_row_{file_key}")
     df = pd.read_csv(io.StringIO(data), header=header_row)
     df = remove_unnecessary_rows(df)
-    st.subheader(f"アップロードされたファイル: {file.name}")
+    st.write(f"アップロードされたファイル: {file.name}")
     st.write(df)
 
-    drop_rows = st.multiselect(f"{file.name} の削除したい行を選択してください", df.index.tolist(), key=f"drop_rows_{key}")
+    drop_rows = st.multiselect(f"{file.name} の削除したい行を選択してください", df.index.tolist(), key=f"drop_rows_{file_key}")
     cleaned_df = df.drop(drop_rows) if drop_rows else df.copy()
     st.write(f"行を削除した後のファイル: {file.name}")
     st.write(cleaned_df)
@@ -139,155 +110,79 @@ def upload_and_process_file(key, file):
     st.write(f"列名を設定した後のファイル: {file.name}")
     st.write(cleaned_df)
 
-    columns_to_keep = st.multiselect(f"{file.name} の保持したい列を選択してください", cleaned_df.columns.tolist(), default=cleaned_df.columns.tolist(), key=f"columns_to_keep_{key}")
+    columns_to_keep = st.multiselect(f"{file.name} の保持したい列を選択してください", cleaned_df.columns.tolist(), default=cleaned_df.columns.tolist(), key=f"columns_to_keep_{file_key}")
     df_final = cleaned_df[columns_to_keep] if columns_to_keep else cleaned_df.copy()
     st.write(f"列を選択した後のファイル: {file.name}")
     st.write(df_final)
 
-    return df_final, key
+    return df_final
 
-def process_datetime_selection(df, datetime_columns_key, date_format_info_key_prefix):
-    datetime_columns = st.multiselect("日時を表す列を選択してください", df.columns.tolist(), key=datetime_columns_key)
 
-    date_format_info = []
-    time_units = ['年', '月', '日', '時', '分', '秒']
+# タイトル
+st.title("Streamlitアプリケーション")
 
-    for unit in time_units:
-        col = st.selectbox(f"{unit}を表す列を選択してください（指定なしの場合はデフォルト値）", options=[None] + datetime_columns, key=f"{unit}_column_{date_format_info_key_prefix}")
-        if col is not None:
-            # サンプルデータの最初の数行を表示して、開始位置と終了位置を選択
-            sample_data = df[col].astype(str).head(3)
-            st.write(f"列 '{col}' のサンプルデータ: ")
-            st.write(sample_data)
+# サイドバーに機能選択ボックスを表示
+page = st.sidebar.selectbox("ページを選択してください", ["機能1", "機能2", "機能3","機能4","機能5","機能6","機能7","機能8","コード表示"])
 
-            start_positions = []
-            end_positions = []
-            for i, sample in enumerate(sample_data):
-                start_pos = st.number_input(f"{col} 列の{unit}部分の開始位置（0ベース）サンプル {i+1}", min_value=0, key=f"{col}_start_{unit}_{i}_{date_format_info_key_prefix}")
-                end_pos = st.number_input(f"{col} 列の{unit}部分の終了位置（0ベース）サンプル {i+1}", min_value=start_pos, key=f"{col}_end_{unit}_{i}_{date_format_info_key_prefix}")
-                start_positions.append(start_pos)
-                end_positions.append(end_pos)
 
-            date_format_info.append({
-                'format': st.selectbox(f"{col} 列の{unit}部分のフォーマットを選択してください", options=['%Y', '%m', '%d', '%H', '%M', '%S'], key=f"{col}_format_{date_format_info_key_prefix}"),
-                'start': start_positions,
-                'end': end_positions,
-                'col': col,
-                'default': ''
-            })
+
+# ファイルをアップロードされたファイルを格納するリスト
+dfs = []
+cleaned_dfs = []
+header_set_dfs = []
+selected_columns_dfs = []
+
+if page == "機能1":
+    st.header("機能1: CSVファイル統合")
+
+    # ファイル処理の開始
+    uploaded_files = []
+    while True:
+        file_key = f"file_{len(uploaded_files)}"
+        df_final = upload_and_process_file(file_key)
+        
+        if df_final is not None:
+            uploaded_files.append(df_final)
+            if st.button("ファイルを追加しますか？", key=f"add_more_{file_key}"):
+                continue
+            else:
+                break
         else:
-            default_value = st.text_input(f"{unit}のデフォルト値を入力してください（年は4桁、他は2桁）", value="1970" if unit == '年' else "01", max_chars=4 if unit == '年' else 2, key=f"{unit}_default_{date_format_info_key_prefix}")
-            date_format_info.append({'format': default_value, 'start': None, 'end': None, 'col': None, 'default': default_value})
+            break
 
-    return date_format_info, datetime_columns
+    if len(uploaded_files) > 1:
+        st.subheader("統合設定")
+        common_columns = set.intersection(*(set(df.columns) for df in uploaded_files))
+        merge_column = st.selectbox("結合に使用する列を選択してください", list(common_columns))
 
-
-# サンプルのDataFrameを作成
-data = {
-    'date_column': ['2021/1/1 16:00:00', '2021/12/10 16:00:00', '2021/6/15 14:30:00']
-}
-df = pd.DataFrame(data)
-
-# プロセスの開始
-date_format_info, datetime_columns = process_datetime_selection(df, "datetime_columns_key", "date_format_info_key_prefix")
-
-if st.button("日時列を統一"):
-    df = combine_datetime(df, datetime_columns, date_format_info)
-    st.write("統合された日時列:")
-    st.write(df)
-
-
-
-# Primary file processing
-primary_file = st.file_uploader("Primaryファイルをアップロードしてください", type=['csv'], key="primary")
-
-if primary_file:
-    primary_df_final, primary_key = upload_and_process_file("primary", primary_file)
-
-    if primary_df_final is not None:
-        primary_date_format_info, primary_datetime_columns = process_datetime_selection(primary_df_final, "datetime_columns_primary", "primary")
-
-        if st.button("日時列を統一 (Primary)"):
-            primary_df_final = combine_datetime(primary_df_final, primary_datetime_columns, primary_date_format_info)
-            st.write(f"日時列を統一した後のファイル: {primary_key}")
-            st.write(primary_df_final)
-
-# Additional files processing
-additional_files = st.file_uploader("追加のファイルをアップロードしてください", type=['csv'], accept_multiple_files=True, key="additional_files")
-
-additional_dfs = []
-for i, file in enumerate(additional_files):
-    if file:
-        additional_df_final, additional_key = upload_and_process_file(f"additional_{i}", file)
-
-        if additional_df_final is not None:
-            additional_date_format_info, additional_datetime_columns = process_datetime_selection(additional_df_final, f"datetime_columns_additional_{i}", f"additional_{i}")
-
-            if st.button(f"日時列を統一 (Additional {i+1})"):
-                additional_df_final = combine_datetime(additional_df_final, additional_datetime_columns, additional_date_format_info)
-                st.write(f"日時列を統一した後のファイル: {additional_key}")
-                st.write(additional_df_final)
-                additional_dfs.append(additional_df_final)
-
-if st.button("ファイルを結合"):
-    if primary_df_final is not None and additional_dfs:
-        all_dfs = [primary_df_final] + additional_dfs
-        for df in all_dfs:
-            if 'datetime' not in df.columns:
-                st.error("全てのファイルに'datetime'列が含まれていることを確認してください。")
-                st.stop()
-        merged_df = pd.concat(all_dfs, ignore_index=True).sort_values(by='datetime').reset_index(drop=True)
-        st.subheader("結合後のデータ（時系列順）")
-        st.write(merged_df)
-    else:
-        st.error("少なくとも1つの追加ファイルが必要です。")
-
-
-
-
-    # 目的変数が含まれたCSVファイルのアップロード
-    target_file = st.file_uploader("目的変数が含まれたCSVファイルをアップロードしてください", type=['csv'], key="target_file")
-
-    if target_file:
-        skip_rows = st.number_input("削除する行数を入力してください", min_value=0, value=0, step=1)
-        target_data = target_file.getvalue().decode('shift-jis')
-
-        raw_target_df = pd.read_csv(io.StringIO(target_data), header=None, error_bad_lines=False, warn_bad_lines=True)
-        st.subheader("ヘッダー除去前のデータ")
-        st.write(raw_target_df)
-
-        target_df = pd.read_csv(io.StringIO(target_data), header=skip_rows, error_bad_lines=False, warn_bad_lines=True)
-        st.subheader("ヘッダー除去後のデータ")
-        st.write(target_df)
-
-        date_column = st.selectbox("目的変数ファイルのDATE列を選択してください", target_df.columns.tolist(), key="date_column")
-        time_column = st.selectbox("目的変数ファイルのTIME列を選択してください", target_df.columns.tolist(), key="time_column")
-        target_df['datetime'] = pd.to_datetime(target_df[date_column] + ' ' + target_df[time_column], errors='coerce')
-        target_df = target_df.drop(columns=[date_column, time_column])
-
-        st.subheader("目的変数が含まれたデータ（datetime列追加後）")
-        st.write(target_df)
-
-        new_columns = []
-        for col in target_df.columns:
-            new_col_name = st.text_input(f"列 '{col}' の新しい名前を入力してください", value=col)
-            new_columns.append(new_col_name)
-        target_df.columns = new_columns
-
-        common_column = st.selectbox("結合に使用する列を選択してください", options=target_df.columns.tolist(), key="common_column")
-
-        if all(common_column in df.columns for df in selected_columns_dfs):
-            merged_df = target_df
-            for df in selected_columns_dfs:
-                merged_df = pd.merge(merged_df, df, on=common_column, how="outer")
-
+        if st.button("ファイルを結合"):
+            merged_df = pd.concat(uploaded_files, ignore_index=True).sort_values(by=merge_column).reset_index(drop=True)
             st.subheader("結合後のデータ")
             st.write(merged_df)
 
+            # CSVとして保存
             csv = merged_df.to_csv(index=False).encode('utf-8-sig')
             st.download_button(label="結合データをCSVとしてダウンロード", data=csv, file_name='merged_data.csv', mime='text/csv')
-        else:
-            st.error("選択された列名はすべてのファイルに存在しません。再選択してください。")
+    elif len(uploaded_files) == 1:
+        st.write("1つのファイルのみがアップロードされました。処理を続行してください。")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     elif page == "機能2":
           st.header("機能2: データの可視化")
