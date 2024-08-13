@@ -92,8 +92,10 @@ def remove_unnecessary_rows(df):
     return df
 
 
+
 def combine_datetime(df, datetime_columns, date_format_info):
     df['datetime'] = pd.NaT
+
     for index, row in df.iterrows():
         datetime_str = ''
         for info in date_format_info:
@@ -102,8 +104,11 @@ def combine_datetime(df, datetime_columns, date_format_info):
             else:
                 col_data = str(row[info['col']])
                 if info['start'] is not None and info['end'] is not None:
-                    col_data = col_data[info['start']:info['end']]
-                datetime_str += col_data
+                    # 複数の開始・終了位置に対応するためにリストを使用
+                    for start, end in zip(info['start'], info['end']):
+                        datetime_str += col_data[start:end]
+                else:
+                    datetime_str += col_data
         try:
             df.at[index, 'datetime'] = pd.to_datetime(datetime_str, format=''.join([f['format'] for f in date_format_info]))
         except Exception as e:
@@ -111,9 +116,8 @@ def combine_datetime(df, datetime_columns, date_format_info):
     
     # 選択した列を削除
     for info in date_format_info:
-        if info['col'] is not None:
-            if info['col'] in df.columns:  # 列が存在するか確認
-                df = df.drop(columns=[info['col']])
+        if info['col'] is not None and info['col'] in df.columns:
+            df = df.drop(columns=[info['col']])
     
     return df
 
@@ -142,24 +146,57 @@ def upload_and_process_file(key, file):
     return df_final, key
 
 
-def process_datetime_selection(df_final, datetime_columns_key, date_format_info_key_prefix):
-    datetime_columns = st.multiselect("日時を表す列を選択してください", df_final.columns.tolist(), key=datetime_columns_key)
+
+
+def process_datetime_selection(df, datetime_columns_key, date_format_info_key_prefix):
+    datetime_columns = st.multiselect("日時を表す列を選択してください", df.columns.tolist(), key=datetime_columns_key)
 
     date_format_info = []
     time_units = ['年', '月', '日', '時', '分', '秒']
 
-    for index, unit in enumerate(time_units):
-        col = st.selectbox(f"{unit}を表す列を選択してください（指定なしの場合はデフォルト値）", options=[None] + datetime_columns, key=f"{unit}_column_{date_format_info_key_prefix}_{index}")
+    for unit in time_units:
+        col = st.selectbox(f"{unit}を表す列を選択してください（指定なしの場合はデフォルト値）", options=[None] + datetime_columns, key=f"{unit}_column_{date_format_info_key_prefix}")
         if col is not None:
-            col_format = st.selectbox(f"{col} 列の形式を選択してください", options=['%Y', '%m', '%d', '%H', '%M', '%S'], key=f"{col}_format_{date_format_info_key_prefix}_{index}")
-            start_pos = st.number_input(f"{col} 列の開始位置（0ベース）を指定してください", min_value=0, key=f"{col}_start_{date_format_info_key_prefix}_{index}")
-            end_pos = st.number_input(f"{col} 列の終了位置（0ベース）を指定してください", min_value=start_pos, key=f"{col}_end_{date_format_info_key_prefix}_{index}")
-            date_format_info.append({'format': col_format, 'start': int(start_pos), 'end': int(end_pos), 'col': col, 'default': ''})
+            # サンプルデータの最初の数行を表示して、開始位置と終了位置を選択
+            sample_data = df[col].astype(str).head(3)
+            st.write(f"列 '{col}' のサンプルデータ: ")
+            st.write(sample_data)
+
+            start_positions = []
+            end_positions = []
+            for i in range(len(time_units)):
+                start_pos = st.number_input(f"{col} 列の{unit}部分の開始位置（0ベース）", min_value=0, key=f"{col}_start_{unit}_{i}_{date_format_info_key_prefix}")
+                end_pos = st.number_input(f"{col} 列の{unit}部分の終了位置（0ベース）", min_value=start_pos, key=f"{col}_end_{unit}_{i}_{date_format_info_key_prefix}")
+                start_positions.append(start_pos)
+                end_positions.append(end_pos)
+
+            date_format_info.append({
+                'format': st.selectbox(f"{col} 列の{unit}部分のフォーマットを選択してください", options=['%Y', '%m', '%d', '%H', '%M', '%S'], key=f"{col}_format_{date_format_info_key_prefix}"),
+                'start': start_positions,
+                'end': end_positions,
+                'col': col,
+                'default': ''
+            })
         else:
-            default_value = st.text_input(f"{unit}のデフォルト値を入力してください（年は4桁、他は2桁）", value="1970" if unit == '年' else "01", max_chars=4 if unit == '年' else 2, key=f"{unit}_default_{date_format_info_key_prefix}_{index}")
+            default_value = st.text_input(f"{unit}のデフォルト値を入力してください（年は4桁、他は2桁）", value="1970" if unit == '年' else "01", max_chars=4 if unit == '年' else 2, key=f"{unit}_default_{date_format_info_key_prefix}")
             date_format_info.append({'format': default_value, 'start': None, 'end': None, 'col': None, 'default': default_value})
 
     return date_format_info, datetime_columns
+
+# サンプルのDataFrameを作成
+data = {
+    'date_column': ['2021/1/1 16:00:00', '2021/12/10 16:00:00', '2021/6/15 14:30:00']
+}
+df = pd.DataFrame(data)
+
+# プロセスの開始
+date_format_info, datetime_columns = process_datetime_selection(df, "datetime_columns_key", "date_format_info_key_prefix")
+
+if st.button("日時列を統一"):
+    df = combine_datetime(df, datetime_columns, date_format_info)
+    st.write("統合された日時列:")
+    st.write(df)
+
 
 
 # Primary file processing
