@@ -121,6 +121,7 @@ def combine_datetime(df, datetime_columns, date_format_info):
     
     return df
 
+
 def upload_and_process_file(key, file):
     data = file.getvalue().decode('shift-jis')
     header_row = st.selectbox(f"{file.name}のヘッダー行の位置を選択してください", options=list(range(10)), index=1, key=f"header_row_{key}")
@@ -145,9 +146,6 @@ def upload_and_process_file(key, file):
 
     return df_final, key
 
-
-
-
 def process_datetime_selection(df, datetime_columns_key, date_format_info_key_prefix):
     datetime_columns = st.multiselect("日時を表す列を選択してください", df.columns.tolist(), key=datetime_columns_key)
 
@@ -164,9 +162,9 @@ def process_datetime_selection(df, datetime_columns_key, date_format_info_key_pr
 
             start_positions = []
             end_positions = []
-            for i in range(len(time_units)):
-                start_pos = st.number_input(f"{col} 列の{unit}部分の開始位置（0ベース）", min_value=0, key=f"{col}_start_{unit}_{i}_{date_format_info_key_prefix}")
-                end_pos = st.number_input(f"{col} 列の{unit}部分の終了位置（0ベース）", min_value=start_pos, key=f"{col}_end_{unit}_{i}_{date_format_info_key_prefix}")
+            for i, sample in enumerate(sample_data):
+                start_pos = st.number_input(f"{col} 列の{unit}部分の開始位置（0ベース）サンプル {i+1}", min_value=0, key=f"{col}_start_{unit}_{i}_{date_format_info_key_prefix}")
+                end_pos = st.number_input(f"{col} 列の{unit}部分の終了位置（0ベース）サンプル {i+1}", min_value=start_pos, key=f"{col}_end_{unit}_{i}_{date_format_info_key_prefix}")
                 start_positions.append(start_pos)
                 end_positions.append(end_pos)
 
@@ -182,6 +180,7 @@ def process_datetime_selection(df, datetime_columns_key, date_format_info_key_pr
             date_format_info.append({'format': default_value, 'start': None, 'end': None, 'col': None, 'default': default_value})
 
     return date_format_info, datetime_columns
+
 
 # サンプルのDataFrameを作成
 data = {
