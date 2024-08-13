@@ -137,11 +137,16 @@ if page == "機能1":
     add_more_files = True
     while add_more_files:
         file_key = f"file_{len(uploaded_files) + 1}"
+        st.write(f"現在のファイル番号: {file_key}")
+        
         uploaded_file = st.file_uploader(f"ファイルをアップロードしてください ({file_key})", type=['csv'], key=f"uploader_{file_key}")
         
         if uploaded_file is not None:
+            st.write(f"ファイル {file_key} がアップロードされました。")
             df_final, key = upload_and_process_file(file_key, uploaded_file)
+            
             if df_final is not None:
+                st.write(f"ファイル {file_key} の処理が完了しました。結果を表示します。")
                 uploaded_files.append((df_final, file_key))
                 st.write(f"ファイル {file_key} の処理結果:")
                 st.write(df_final)
@@ -151,6 +156,7 @@ if page == "機能1":
                 break
         else:
             st.warning("ファイルがアップロードされていません。ファイルを選択してください。")
+            add_more_files = False
             break
 
     if len(uploaded_files) > 1:
@@ -162,6 +168,7 @@ if page == "機能1":
             merge_columns.append(merge_column)
 
         if st.button("ファイルを結合"):
+            st.write("ファイルを結合しています...")
             merged_df = uploaded_files[0][0]  # 最初のデータフレームを取得
             for i in range(1, len(uploaded_files)):
                 merged_df = pd.merge(merged_df, uploaded_files[i][0], on=merge_columns[i])
@@ -175,7 +182,6 @@ if page == "機能1":
             st.download_button(label="結合データをCSVとしてダウンロード", data=csv, file_name='merged_data.csv', mime='text/csv')
     elif len(uploaded_files) == 1:
         st.write("1つのファイルのみがアップロードされました。処理を続行してください。")
-
 
 
 
