@@ -136,32 +136,35 @@ if page == "機能1":
     uploaded_files = []
     while True:
         file_key = f"file_{len(uploaded_files) + 1}"
-        df_final, key = upload_and_process_file(file_key, st.file_uploader(f"ファイルをアップロードしてください ({file_key})", type=['csv'], key=f"uploader_{file_key}"))
-
-        if df_final is not None:
-            uploaded_files.append((df_final, key))
-            if st.button("ファイルを追加しますか？", key=f"add_more_{file_key}"):
-                continue
-            else:
-                break
+        uploaded_file = st.file_uploader(f"ファイルをアップロードしてください ({file_key})", type=['csv'], key=f"uploader_{file_key}")
+        
+        # ファイルがアップロードされているか確認
+        if uploaded_file is not None:
+            df_final, key = upload_and_process_file(file_key, uploaded_file)
+            if df_final is not None:
+                uploaded_files.append(df_final)
+                if st.button("ファイルを追加しますか？", key=f"add_more_{file_key}"):
+                    continue
+                else:
+                    break
         else:
+            st.warning("ファイルがアップロードされていません。ファイルを選択してください。")
             break
 
     if len(uploaded_files) > 1:
         st.subheader("統合設定")
-
-        merge_columns = {}
-        for df, key in uploaded_files:
-            merge_columns[key] = st.selectbox(f"{key} の結合に使用する列を選択してください", df.columns.tolist(), key=f"merge_column_{key}")
+        common_columns = set.intersection(*(set(df.columns) for df in uploaded_files))
+        merge_columns = []
+        for i, df in enumerate(uploaded_files):
+            merge_column = st.selectbox(f"結合に使用する列を選択してください (ファイル {i+1})", list(common_columns), key=f"merge_column_{i}")
+            merge_columns.append(merge_column)
 
         if st.button("ファイルを結合"):
-            merged_df = uploaded_files[0][0]
-            for df, key in uploaded_files[1:]:
-                merge_column1 = merge_columns[uploaded_files[0][1]]
-                merge_column2 = merge_columns[key]
-                merged_df = pd.merge(merged_df, df, left_on=merge_column1, right_on=merge_column2, how="outer")
+            merged_df = uploaded_files[0]
+            for i in range(1, len(uploaded_files)):
+                merged_df = pd.merge(merged_df, uploaded_files[i], on=merge_columns[i])
 
-            merged_df = merged_df.sort_values(by=merge_columns[uploaded_files[0][1]]).reset_index(drop=True)
+            merged_df = merged_df.sort_values(by=merge_columns[0]).reset_index(drop=True)
             st.subheader("結合後のデータ")
             st.write(merged_df)
 
@@ -170,6 +173,7 @@ if page == "機能1":
             st.download_button(label="結合データをCSVとしてダウンロード", data=csv, file_name='merged_data.csv', mime='text/csv')
     elif len(uploaded_files) == 1:
         st.write("1つのファイルのみがアップロードされました。処理を続行してください。")
+
 
 
 
