@@ -91,6 +91,7 @@ def remove_unnecessary_rows(df):
     df = df[~df.apply(lambda row: row.astype(str).str.contains('タイトル|不要な行').any(), axis=1)]  # 特定のキーワードを含む行を削除
     return df
 
+
 def combine_datetime(df, datetime_columns, date_format_info):
     df['datetime'] = pd.NaT
     for index, row in df.iterrows():
@@ -107,10 +108,13 @@ def combine_datetime(df, datetime_columns, date_format_info):
             df.at[index, 'datetime'] = pd.to_datetime(datetime_str, format=''.join([f['format'] for f in date_format_info]))
         except Exception as e:
             st.error(f"行 {index} の日時変換に失敗しました: {e}")
+    
     # 選択した列を削除
     for info in date_format_info:
         if info['col'] is not None:
-            df = df.drop(columns=[info['col']])
+            if info['col'] in df.columns:  # 列が存在するか確認
+                df = df.drop(columns=[info['col']])
+    
     return df
 
 def upload_and_process_file(key, file):
