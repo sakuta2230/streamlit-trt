@@ -137,24 +137,26 @@ def upload_and_process_file(key, file):
 
     return df_final, key
 
+
 def process_datetime_selection(df_final, datetime_columns_key, date_format_info_key_prefix):
     datetime_columns = st.multiselect("日時を表す列を選択してください", df_final.columns.tolist(), key=datetime_columns_key)
 
     date_format_info = []
     time_units = ['年', '月', '日', '時', '分', '秒']
 
-    for unit in time_units:
-        col = st.selectbox(f"{unit}を表す列を選択してください（指定なしの場合はデフォルト値）", options=[None] + datetime_columns, key=f"{unit}_column_{date_format_info_key_prefix}")
+    for index, unit in enumerate(time_units):
+        col = st.selectbox(f"{unit}を表す列を選択してください（指定なしの場合はデフォルト値）", options=[None] + datetime_columns, key=f"{unit}_column_{date_format_info_key_prefix}_{index}")
         if col is not None:
-            col_format = st.selectbox(f"{col} 列の形式を選択してください", options=['%Y', '%m', '%d', '%H', '%M', '%S'], key=f"{col}_format_{date_format_info_key_prefix}")
-            start_pos = st.number_input(f"{col} 列の開始位置（0ベース）を指定してください", min_value=0, key=f"{col}_start_{date_format_info_key_prefix}")
-            end_pos = st.number_input(f"{col} 列の終了位置（0ベース）を指定してください", min_value=start_pos, key=f"{col}_end_{date_format_info_key_prefix}")
+            col_format = st.selectbox(f"{col} 列の形式を選択してください", options=['%Y', '%m', '%d', '%H', '%M', '%S'], key=f"{col}_format_{date_format_info_key_prefix}_{index}")
+            start_pos = st.number_input(f"{col} 列の開始位置（0ベース）を指定してください", min_value=0, key=f"{col}_start_{date_format_info_key_prefix}_{index}")
+            end_pos = st.number_input(f"{col} 列の終了位置（0ベース）を指定してください", min_value=start_pos, key=f"{col}_end_{date_format_info_key_prefix}_{index}")
             date_format_info.append({'format': col_format, 'start': int(start_pos), 'end': int(end_pos), 'col': col, 'default': ''})
         else:
-            default_value = st.text_input(f"{unit}のデフォルト値を入力してください（年は4桁、他は2桁）", value="1970" if unit == '年' else "01", max_chars=4 if unit == '年' else 2, key=f"{unit}_default_{date_format_info_key_prefix}")
+            default_value = st.text_input(f"{unit}のデフォルト値を入力してください（年は4桁、他は2桁）", value="1970" if unit == '年' else "01", max_chars=4 if unit == '年' else 2, key=f"{unit}_default_{date_format_info_key_prefix}_{index}")
             date_format_info.append({'format': default_value, 'start': None, 'end': None, 'col': None, 'default': default_value})
 
     return date_format_info, datetime_columns
+
 
 # Primary file processing
 primary_file = st.file_uploader("Primaryファイルをアップロードしてください", type=['csv'], key="primary")
