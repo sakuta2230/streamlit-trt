@@ -134,19 +134,21 @@ if page == "機能1":
 
     # ファイル処理の開始
     uploaded_files = []
-    while True:
+    add_more_files = True
+    while add_more_files:
         file_key = f"file_{len(uploaded_files) + 1}"
         uploaded_file = st.file_uploader(f"ファイルをアップロードしてください ({file_key})", type=['csv'], key=f"uploader_{file_key}")
         
-        # ファイルがアップロードされているか確認
         if uploaded_file is not None:
             df_final, key = upload_and_process_file(file_key, uploaded_file)
             if df_final is not None:
                 uploaded_files.append((df_final, file_key))
-                if st.button(f"ファイルを追加しますか？ (ファイル {file_key})", key=f"add_more_{file_key}"):
-                    continue
-                else:
-                    break
+                st.write(f"ファイル {file_key} の処理結果:")
+                st.write(df_final)
+                add_more_files = st.button(f"さらにファイルを追加しますか？ (ファイル {file_key})", key=f"add_more_{file_key}")
+            else:
+                st.warning(f"ファイル {file_key} の処理に失敗しました。")
+                break
         else:
             st.warning("ファイルがアップロードされていません。ファイルを選択してください。")
             break
@@ -173,6 +175,7 @@ if page == "機能1":
             st.download_button(label="結合データをCSVとしてダウンロード", data=csv, file_name='merged_data.csv', mime='text/csv')
     elif len(uploaded_files) == 1:
         st.write("1つのファイルのみがアップロードされました。処理を続行してください。")
+
 
 
 
