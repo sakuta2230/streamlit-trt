@@ -592,20 +592,27 @@ if page == "機能7":
         if explanatory_vars.empty:
             st.error("有効な説明変数がありません。")
         else:
-           # 標準化
+            # コンポーネント数を選択
+            n_components = st.selectbox('PLSのコンポーネント数を選択してください', options=[1, 2, 3], index=1)
+
+            # 標準化
             scaler = StandardScaler()
             X_scaled = scaler.fit_transform(explanatory_vars)
             y_scaled = scaler.fit_transform(df[[target_var]])
 
             # PLS分析の実行
             from sklearn.cross_decomposition import PLSRegression
-            pls = PLSRegression(n_components=2)
-            pls.fit(explanatory_vars, df[target_var])
+            pls = PLSRegression(n_components=n_components)
+            pls.fit(X_scaled, y_scaled)
 
             # 各説明変数の影響度（回帰係数の絶対値の合計）
             influence = np.sum(np.abs(pls.coef_), axis=1)
             influence_df = pd.DataFrame({'Variable': explanatory_vars.columns, 'Influence': influence})
             top5_influence = influence_df.nlargest(5, 'Influence')
+
+            # 決定係数を計算
+            r_squared = pls.score(X_scaled, y_scaled)
+            r_squared_df = pd.DataFrame({'Metric': ['決定係数 (R²)'], 'Value': [r_squared]})
 
             # 影響度の高い説明変数の上位5位の棒グラフ
             st.subheader("影響度の高い説明変数 上位5位")
@@ -613,8 +620,13 @@ if page == "機能7":
             ax.bar(top5_influence['Variable'], top5_influence['Influence'], color='skyblue')
             ax.set_xlabel('説明変数')
             ax.set_ylabel('影響度')
-            ax.set_title('PLS分析による影響度の高い説明変数 上位5位')
+            ax.set_title(f'PLS分析による影響度の高い説明変数 上位5位 (n_components={n_components})')
             st.pyplot(fig)
+
+            # 決定係数の表示
+            st.subheader("決定係数 (R²)")
+            st.write(r_squared_df)
+
 
 
 
