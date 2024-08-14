@@ -601,6 +601,7 @@ if page == "機能7":
             y_scaled = scaler.fit_transform(df[[target_var]])
 
             # PLS分析の実行
+            from sklearn.cross_decomposition import PLSRegression
             pls = PLSRegression(n_components=n_components)
             pls.fit(X_scaled, y_scaled)
 
@@ -609,12 +610,8 @@ if page == "機能7":
             influence_df = pd.DataFrame({'Variable': explanatory_vars.columns, 'Influence': influence})
             top5_influence = influence_df.nlargest(5, 'Influence')
 
-            # モデルの決定係数 (R²) を計算
+            # 決定係数を計算
             r_squared = pls.score(X_scaled, y_scaled)
-
-            # 各説明変数に対する決定係数 (R²) の計算
-            explained_variances = pls.x_scores_ ** 2
-            individual_r_squared = explained_variances.sum(axis=0) / explained_variances.sum()
 
             # 影響度の高い説明変数の上位5位の棒グラフ
             st.subheader("影響度の高い説明変数 上位5位")
@@ -623,21 +620,14 @@ if page == "機能7":
             ax.set_xlabel('説明変数')
             ax.set_ylabel('影響度')
             ax.set_title(f'PLS分析による影響度の高い説明変数 上位5位 (n_components={n_components})')
-            
-            # 決定係数をグラフ内に表示
+
+            # グラフ内に決定係数 (R²) を表示
             ax.text(0.95, 0.95, f'R² = {r_squared:.2f}', transform=ax.transAxes, 
                     fontsize=12, verticalalignment='top', horizontalalignment='right', 
-                    bbox=dict(facecolor='white', alpha=0.5))
-
+                    bbox=dict(boxstyle='round,pad=0.3', edgecolor='black', facecolor='white'))
+            
             st.pyplot(fig)
 
-            # 説明変数ごとの決定係数を表で表示
-            st.subheader("各説明変数の決定係数 (R²)")
-            r_squared_df = pd.DataFrame({
-                '説明変数': explanatory_vars.columns,
-                '決定係数 (R²)': individual_r_squared
-            })
-            st.write(r_squared_df)
 
 
 
