@@ -139,6 +139,19 @@ selected_columns_dfs = []
 
 
 
+import streamlit as st
+import pandas as pd
+import chardet
+import io
+
+# エンコードを指定してファイルを読み込む関数
+def read_csv_with_encoding(uploaded_file, encoding):
+    try:
+        return pd.read_csv(io.StringIO(uploaded_file.getvalue().decode(encoding)))
+    except (UnicodeDecodeError, pd.errors.EmptyDataError) as e:
+        st.write(f"{encoding}での読み込み中にエラーが発生しました: {e}")
+        return None
+
 if page == "機能1":
     st.header("機能1: CSVファイル統合")
 
@@ -167,7 +180,7 @@ if page == "機能1":
             df = read_csv_with_encoding(uploaded_file, manual_encoding)
             if df is not None:
                 st.write(f"選択された{manual_encoding}エンコーディングで読み込み成功")
-                df_final, key = upload_and_process_file(file_key, df)  # エンコード後のデータを処理
+                df_final, key = upload_and_process_file(file_key, uploaded_file)  # 元の関数にファイルを渡す
                 if df_final is not None:
                     st.write(f"ファイル {i+1} の処理結果:")
                     st.write(df_final)
@@ -194,6 +207,7 @@ if page == "機能1":
                 st.download_button(label="結合データをCSVとしてダウンロード", data=csv, file_name='merged_data.csv', mime='text/csv')
         elif len(processed_files) == 1:
             st.write("1つのファイルのみがアップロードされました。処理を続行してください。")
+
 
 
 
