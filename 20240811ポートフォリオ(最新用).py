@@ -89,8 +89,9 @@ def combine_datetime(df, datetime_columns, date_format_info):
             st.error(f"行 {index} の日時変換に失敗しました: {e}")
     return df
 
-def upload_and_process_file(key, file):
-    data = file.getvalue().decode('shift-jis')
+def upload_and_process_file(key, file, encoding):
+    # エンコーディングに基づいてファイルの内容をデコード
+    data = file.getvalue().decode(encoding)
     header_row = st.selectbox(f"{file.name}のヘッダー行の位置を選択してください", options=list(range(10)), index=1, key=f"header_row_{key}")
     df = pd.read_csv(io.StringIO(data), header=header_row)
     df = remove_unnecessary_rows(df)
@@ -111,7 +112,7 @@ def upload_and_process_file(key, file):
     st.write(f"列を選択した後のファイル: {file.name}")
     st.write(df_final)
 
-    return df_final, key  # 修正: 2つの値を返すように変更
+    return df_final, key
 # エンコードを指定してファイルを読み込む関数
 def read_csv_with_encoding(uploaded_file, encoding):
     try:
@@ -139,19 +140,7 @@ selected_columns_dfs = []
 
 
 
-import streamlit as st
-import pandas as pd
-import chardet
-import io
-
-# エンコードを指定してファイルを読み込む関数
-def read_csv_with_encoding(uploaded_file, encoding):
-    try:
-        return pd.read_csv(io.StringIO(uploaded_file.getvalue().decode(encoding)))
-    except (UnicodeDecodeError, pd.errors.EmptyDataError) as e:
-        st.write(f"{encoding}での読み込み中にエラーが発生しました: {e}")
-        return None
-
+# メイン処理部分
 if page == "機能1":
     st.header("機能1: CSVファイル統合")
 
@@ -176,17 +165,13 @@ if page == "機能1":
             encodings_to_try = [detected_encoding, 'utf-8-sig', 'shift-jis', 'Windows-1252', 'MacRoman']
             manual_encoding = st.selectbox("手動でエンコーディングを選択してください", encodings_to_try, key=file_key)
 
-            # 選択されたエンコーディングでデータを読み込む
-            df = read_csv_with_encoding(uploaded_file, manual_encoding)
-            if df is not None:
-                st.write(f"選択された{manual_encoding}エンコーディングで読み込み成功")
-                df_final, key = upload_and_process_file(file_key, uploaded_file)  # 元の関数にファイルを渡す
-                if df_final is not None:
-                    st.write(f"ファイル {i+1} の処理結果:")
-                    st.write(df_final)
-                    processed_files.append((df_final, file_key))
-            else:
-                st.error(f"{manual_encoding}エンコーディングでも読み込みに失敗しました。")
+            # ファイル処理
+            df_final, key = upload_and_process_file(file_key, uploaded_file, manual_encoding)
+
+            if df_final is not None:
+                st.write(f"ファイル {i+1} の処理結果:")
+                st.write(df_final)
+                processed_files.append((df_final, file_key))
 
         if len(processed_files) > 1:
             st.subheader("統合設定")
@@ -207,6 +192,10 @@ if page == "機能1":
                 st.download_button(label="結合データをCSVとしてダウンロード", data=csv, file_name='merged_data.csv', mime='text/csv')
         elif len(processed_files) == 1:
             st.write("1つのファイルのみがアップロードされました。処理を続行してください。")
+
+
+
+
 
 
 
