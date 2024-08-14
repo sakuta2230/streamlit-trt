@@ -326,6 +326,9 @@ if page == "機能2":
 
 
 
+
+
+
 if page == "機能4":
     st.header("機能4: 目的変数の時間をずらして相関関係を確認")
 
@@ -368,31 +371,35 @@ if page == "機能4":
         axes[0].set_ylabel(explanatory_var)
         axes[0].legend()
 
-        # 相関関係のグラフ
+        # 決定係数の計算
         valid_data = pd.concat([df[explanatory_var], shifted_target], axis=1).dropna()
         correlation = valid_data[target_var].corr(valid_data[explanatory_var])
+        r_squared = correlation ** 2
         axes[1].scatter(valid_data[explanatory_var], valid_data[target_var], alpha=0.5)
-        axes[1].set_title(f'{explanatory_var} と {target_var} の相関 (r={correlation:.2f})')
+        axes[1].set_title(f'{explanatory_var} と {target_var} の決定係数 (R²={r_squared:.2f})')
         axes[1].set_xlabel(explanatory_var)
         axes[1].set_ylabel(target_var)
 
         plt.tight_layout()
         st.pyplot(fig)
 
-        st.subheader("相互相関のプロット")
-        cross_corr = [df[target_var].corr(df[explanatory_var].shift(lag)) for lag in range(-24, 25)]
-        lags = range(-24, 25)
+        # 遅れ時間ごとの決定係数の計算
+        st.subheader("遅れ時間ごとの決定係数のプロット")
+        r_squared_values = [(lag, (df[target_var].corr(df[explanatory_var].shift(lag)))**2) for lag in range(-24, 25)]
+        r_squared_values = sorted(r_squared_values, key=lambda x: x[1], reverse=True)
 
+        # 上位10位の遅れ時間と決定係数を抽出
+        top_10_r_squared = r_squared_values[:10]
+        lags, r_squared_scores = zip(*top_10_r_squared)
+
+        # 上位10位の決定係数を棒グラフでプロット
         fig2, ax2 = plt.subplots(figsize=(10, 5))
-        ax2.plot(lags, cross_corr, marker='o')
-        ax2.set_xlabel('時間遅れ (時間)')
-        ax2.set_ylabel('相互相関')
-        ax2.set_title('相互相関のプロット')
-        ax2.axhline(0, color='black',linewidth=0.5)
-        ax2.axhline(0.2, color='red', linestyle='--', linewidth=0.5)
-        ax2.axhline(-0.2, color='red', linestyle='--', linewidth=0.5)
-        ax2.axvline(0, color='black',linewidth=0.5)
+        ax2.bar(lags, r_squared_scores, color='skyblue')
+        ax2.set_xlabel('遅れ時間 (時間)')
+        ax2.set_ylabel('決定係数 (R²)')
+        ax2.set_title('遅れ時間ごとの上位10位の決定係数')
         st.pyplot(fig2)
+
 
 
 if page == "機能5":
