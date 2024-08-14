@@ -498,9 +498,10 @@ if page == "機能6":
         # ウィンドウサイズを指定
         window_size = st.number_input('ウィンドウサイズを指定してください', min_value=1, value=5, step=1)
 
-        # 移動平均と移動分散を計算
+        # 移動平均、移動分散、変動係数を計算
         df['Moving Average'] = df[target_var].rolling(window=window_size).mean()
         df['Moving Variance'] = df[target_var].rolling(window=window_size).var()
+        df['Coefficient of Variation'] = df['Moving Variance']**0.5 / df['Moving Average']
 
         # 移動平均の時系列グラフ
         st.subheader(f"{target_var} の移動平均")
@@ -529,6 +530,31 @@ if page == "機能6":
         ax3.legend(loc='upper right')
 
         st.pyplot(fig2)
+
+        # 変動係数の時系列グラフ
+        st.subheader(f"{target_var} の変動係数")
+        fig3, ax4 = plt.subplots(figsize=(15, 5))
+
+        ax4.plot(df.index, df['Coefficient of Variation'], label='Coefficient of Variation', color='purple')
+        ax4.set_xlabel('Date')
+        ax4.set_ylabel('Coefficient of Variation', color='purple')
+        ax4.legend(loc='upper right')
+
+        st.pyplot(fig3)
+
+        # 移動平均の最大値、最小値、中央値を計算
+        max_avg = df['Moving Average'].max()
+        min_avg = df['Moving Average'].min()
+        median_avg = df['Moving Average'].median()
+
+        # 結果を表で表示
+        st.subheader("移動平均の統計量")
+        summary_table = pd.DataFrame({
+            'Statistic': ['最大値', '最小値', '中央値'],
+            'Value': [max_avg, min_avg, median_avg]
+        })
+        st.write(summary_table)
+
 
 
 
