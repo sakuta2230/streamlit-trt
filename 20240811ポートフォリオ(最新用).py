@@ -432,12 +432,28 @@ if page == "機能5":
         if category_var and target_var:
             st.subheader(f"{category_var} ごとの {target_var} の箱ひげ図")
 
+            # 箱ひげ図の描画
             fig, ax = plt.subplots(figsize=(10, 6))
             sns.boxplot(x=df[category_var], y=df[target_var], ax=ax)
             ax.set_title(f'{category_var} ごとの {target_var} の箱ひげ図')
             ax.set_xlabel(category_var)
             ax.set_ylabel(target_var)
             st.pyplot(fig)
+
+            # カテゴリごとの統計量を計算
+            stats_df = df.groupby(category_var)[target_var].agg([
+                ('平均値', 'mean'),
+                ('中央値', 'median'),
+                ('標準偏差', 'std'),
+                ('最小値', 'min'),
+                ('最大値', 'max'),
+                ('サンプルサイズ', 'count'),
+                ('四分位範囲 (IQR)', lambda x: x.quantile(0.75) - x.quantile(0.25))
+            ]).reset_index()
+
+            st.subheader(f"{category_var} ごとの {target_var} の統計量")
+            st.write(stats_df)
+
 
 
 # 機能6: 移動平均と移動分散の可視化
