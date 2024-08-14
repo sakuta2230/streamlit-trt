@@ -129,6 +129,7 @@ cleaned_dfs = []
 header_set_dfs = []
 selected_columns_dfs = []
 
+# 機能1: CSVファイル統合
 if page == "機能1":
     st.header("機能1: CSVファイル統合")
 
@@ -141,9 +142,25 @@ if page == "機能1":
             file_key = f"file_{i+1}"
             st.subheader(f"ファイル {i+1}: {uploaded_file.name}")
 
-            # 各ファイルに対して個別の処理を行う
-            df_final, key = upload_and_process_file(file_key, uploaded_file)
+            # エンコーディングの検出
+            raw_data = uploaded_file.getvalue()
+            result = chardet.detect(raw_data)
+            detected_encoding = result['encoding']
+            st.write(f"ファイル {i+1} の検出されたエンコーディング: {detected_encoding}")
 
+            # ユーザーにエンコーディングを選択させる
+            encodings_to_try = [detected_encoding, 'utf-8-sig', 'shift-jis', 'Windows-1252', 'MacRoman']
+            manual_encoding = st.selectbox(f"ファイル {i+1} のエンコーディングを選択してください", encodings_to_try, key=f"encoding_{file_key}")
+
+            # 選択されたエンコーディングでデータを読み込む
+            try:
+                df_final = pd.read_csv(io.StringIO(raw_data.decode(manual_encoding)))
+                st.write(f"ファイル {i+1} の選択された{manual_encoding}エンコーディングで読み込み成功")
+            except Exception as e:
+                st.error(f"ファイル {i+1} の{manual_encoding}エンコーディングで読み込みに失敗しました: {e}")
+                continue
+
+            # 各ファイルに対して個別の処理を行う
             if df_final is not None:
                 st.write(f"ファイル {i+1} の処理結果:")
                 st.write(df_final)
@@ -168,25 +185,6 @@ if page == "機能1":
                 st.download_button(label="結合データをCSVとしてダウンロード", data=csv, file_name='merged_data.csv', mime='text/csv')
         elif len(processed_files) == 1:
             st.write("1つのファイルのみがアップロードされました。処理を続行してください。")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
