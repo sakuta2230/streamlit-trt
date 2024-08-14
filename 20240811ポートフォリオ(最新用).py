@@ -351,54 +351,63 @@ if page == "機能4":
         df[time_column] = pd.to_datetime(df[time_column], errors='coerce')
         df.set_index(time_column, inplace=True)
 
-        # 列の中から表示させる説明変数を選ぶ
-        explanatory_var = st.selectbox('表示させる説明変数を選択してください', df.columns[df.columns != target_var])
-
         # スライドバーで時間をずらす（単位: 時間）
         time_lag = st.slider('目的変数の時間をずらす量（単位: 時間）', min_value=-24, max_value=24, value=0, step=1)
 
         # 目的変数の時間をずらす
         shifted_target = df[target_var].shift(periods=time_lag, freq='H')
 
-        # 時系列グラフと相関関係のグラフ
-        st.subheader(f"{explanatory_var} の時系列グラフと相関関係（時間遅れ: {time_lag} 時間）")
+        # 各説明変数の決定係数を計算して棒グラフで表示
+        st.subheader(f"遅れ時間 {time_lag} 時間における各説明変数の決定係数")
+        r_squared_values = {}
+        for col in df.columns:
+            if col != target_var:
+                correlation = df[col].corr(shifted_target)
+                r_squared_values[col] = correlation ** 2
 
-        fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(20, 5))
+        sorted_r_squared = sorted(r_squared_values.items(), key=lambda item: item[1], reverse=True)
+        variables, r_squared_scores = zip(*sorted_r_squared)
 
-        # 時系列グラフ
-        axes[0].plot(df.index, df[explanatory_var], label=explanatory_var)
-        axes[0].set_title(f'{explanatory_var} の時系列データ')
-        axes[0].set_ylabel(explanatory_var)
-        axes[0].legend()
+        fig1, ax1 = plt.subplots(figsize=(10, 5))
+        ax1.bar(variables[:10], r_squared_scores[:10], color='skyblue')  # 上位10の説明変数を表示
+        ax1.set_xlabel('説明変数')
+        ax1.set_ylabel('決定係数 (R²)')
+        ax1.set_title(f'遅れ時間 {time_lag} 時間における決定係数の上位10変数')
+        ax1.tick_params(axis='x', rotation=45)
+        st.pyplot(fig1)
 
-        # 決定係数の計算
+        # 列の中から表示させる説明変数を選ぶ
+        explanatory_var = st.selectbox('表示させる説明変数を選択してください', variables)
+
+        # 時系列グラフと決定係数のグラフ
+        st.subheader(f"{explanatory_var} の時系列グラフと決定係数（遅れ時間: {time_lag} 時間）")
+
+        fig2, axes = plt.subplots(nrows=2, ncols=2, figsize=(20, 10), gridspec_kw={'height_ratios': [1, 1]})
+
+        # 目的変数の時系列グラフ
+        axes[0, 0].plot(df.index, df[target_var], label=target_var, color='orange')
+        axes[0, 0].set_title(f'{target_var} の時系列データ')
+        axes[0, 0].set_ylabel(target_var)
+        axes[0, 0].legend()
+
+        # 説明変数の時系列グラフ
+        axes[1, 0].plot(df.index, df[explanatory_var], label=explanatory_var, color='blue')
+        axes[1, 0].set_title(f'{explanatory_var} の時系列データ')
+        axes[1, 0].set_ylabel(explanatory_var)
+        axes[1, 0].legend()
+
+        # 決定係数のグラフ
         valid_data = pd.concat([df[explanatory_var], shifted_target], axis=1).dropna()
         correlation = valid_data[target_var].corr(valid_data[explanatory_var])
         r_squared = correlation ** 2
-        axes[1].scatter(valid_data[explanatory_var], valid_data[target_var], alpha=0.5)
-        axes[1].set_title(f'{explanatory_var} と {target_var} の決定係数 (R²={r_squared:.2f})')
-        axes[1].set_xlabel(explanatory_var)
-        axes[1].set_ylabel(target_var)
+        axes[1, 1].scatter(valid_data[explanatory_var], valid_data[target_var], alpha=0.5)
+        axes[1, 1].set_title(f'{explanatory_var} と {target_var} の決定係数 (R²={r_squared:.2f})')
+        axes[1, 1].set_xlabel(explanatory_var)
+        axes[1, 1].set_ylabel(target_var)
 
         plt.tight_layout()
-        st.pyplot(fig)
-
-        # 遅れ時間ごとの決定係数の計算
-        st.subheader("遅れ時間ごとの決定係数のプロット")
-        r_squared_values = [(lag, (df[target_var].corr(df[explanatory_var].shift(lag)))**2) for lag in range(-24, 25)]
-        r_squared_values = sorted(r_squared_values, key=lambda x: x[1], reverse=True)
-
-        # 上位10位の遅れ時間と決定係数を抽出
-        top_10_r_squared = r_squared_values[:10]
-        lags, r_squared_scores = zip(*top_10_r_squared)
-
-        # 上位10位の決定係数を棒グラフでプロット
-        fig2, ax2 = plt.subplots(figsize=(10, 5))
-        ax2.bar(lags, r_squared_scores, color='skyblue')
-        ax2.set_xlabel('遅れ時間 (時間)')
-        ax2.set_ylabel('決定係数 (R²)')
-        ax2.set_title('遅れ時間ごとの上位10位の決定係数')
         st.pyplot(fig2)
+
 
 
 
