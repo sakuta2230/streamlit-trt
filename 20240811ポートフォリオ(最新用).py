@@ -112,6 +112,13 @@ def upload_and_process_file(key, file):
     st.write(df_final)
 
     return df_final, key  # 修正: 2つの値を返すように変更
+# エンコードを指定してファイルを読み込む関数
+def read_csv_with_encoding(uploaded_file, encoding):
+    try:
+        return pd.read_csv(io.StringIO(uploaded_file.getvalue().decode(encoding)))
+    except (UnicodeDecodeError, pd.errors.EmptyDataError) as e:
+        st.write(f"{encoding}での読み込み中にエラーが発生しました: {e}")
+        return None
 
 
 
@@ -129,7 +136,9 @@ cleaned_dfs = []
 header_set_dfs = []
 selected_columns_dfs = []
 
-# 機能1: CSVファイル統合
+
+
+
 if page == "機能1":
     st.header("機能1: CSVファイル統合")
 
@@ -142,25 +151,29 @@ if page == "機能1":
             file_key = f"file_{i+1}"
             st.subheader(f"ファイル {i+1}: {uploaded_file.name}")
 
-            # エンコーディングの検出と選択
+            # ファイルのバイナリデータを読み込む
             raw_data = uploaded_file.getvalue()
+
+            # エンコーディングの検出
             result = chardet.detect(raw_data)
             detected_encoding = result['encoding']
             st.write(f"検出されたエンコーディング: {detected_encoding}")
 
+            # ユーザーにエンコーディングを選択させる
             encodings_to_try = [detected_encoding, 'utf-8-sig', 'shift-jis', 'Windows-1252', 'MacRoman']
-            manual_encoding = st.selectbox("手動でエンコーディングを選択してください", encodings_to_try)
+            manual_encoding = st.selectbox("手動でエンコーディングを選択してください", encodings_to_try, key=file_key)
 
             # 選択されたエンコーディングでデータを読み込む
-            df_final = pd.read_csv(io.StringIO(raw_data.decode(manual_encoding)))
-
-            # 各ファイルに対して個別の処理を行う
-            df_final, key = upload_and_process_file(file_key, uploaded_file)
-
-            if df_final is not None:
-                st.write(f"ファイル {i+1} の処理結果:")
-                st.write(df_final)
-                processed_files.append((df_final, file_key))
+            df = read_csv_with_encoding(uploaded_file, manual_encoding)
+            if df is not None:
+                st.write(f"選択された{manual_encoding}エンコーディングで読み込み成功")
+                df_final, key = upload_and_process_file(file_key, df)  # エンコード後のデータを処理
+                if df_final is not None:
+                    st.write(f"ファイル {i+1} の処理結果:")
+                    st.write(df_final)
+                    processed_files.append((df_final, file_key))
+            else:
+                st.error(f"{manual_encoding}エンコーディングでも読み込みに失敗しました。")
 
         if len(processed_files) > 1:
             st.subheader("統合設定")
@@ -181,6 +194,7 @@ if page == "機能1":
                 st.download_button(label="結合データをCSVとしてダウンロード", data=csv, file_name='merged_data.csv', mime='text/csv')
         elif len(processed_files) == 1:
             st.write("1つのファイルのみがアップロードされました。処理を続行してください。")
+
 
 
 
