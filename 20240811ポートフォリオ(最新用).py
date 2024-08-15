@@ -596,10 +596,10 @@ if page == "機能6: PLS分析と説明変数の影響度可視化":
 if page == "機能7: コード表示":
     st.header("機能7: コード表示")
     # 現在のスクリプトファイルを読み込んで表示
-          with open(__file__, 'r', encoding='utf-8') as f:
-              code = f.read()
+    with open(__file__, 'r', encoding='utf-8') as f:
+        　code = f.read()
 
-          st.code(code, language='python')
+    st.code(code, language='python')
 
 
 
