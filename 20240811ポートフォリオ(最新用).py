@@ -295,7 +295,7 @@ if page == "機能2: データの基本情報、基本統計量":
 
 
 if page == "機能3: 時系列グラフと相関関係":
-    st.header("機能3:  時系列グラフと相関関係")
+    st.header("機能3: 時系列グラフと相関関係")
 
     # ファイルアップローダー
     uploaded_file = st.file_uploader("CSVファイルをアップロードしてください", type=['csv'])
@@ -316,14 +316,28 @@ if page == "機能3: 時系列グラフと相関関係":
         df[time_column] = pd.to_datetime(df[time_column], errors='coerce')
         df.set_index(time_column, inplace=True)
 
-        # スライドバーで時間をずらす（単位: 時間）
-        time_lag = st.slider('目的変数の時間をずらす量（単位: 時間）', min_value=-24, max_value=24, value=0, step=1)
+        # 単位を選択
+        time_unit = st.selectbox('遅れ時間の単位を選択してください', ['秒', '分', '時間', '日', '月', '年'])
 
-        # 目的変数の時間をずらす
-        shifted_target = df[target_var].shift(periods=time_lag, freq='H')
+        # スライドバーで時間をずらす量を設定
+        time_lag = st.slider(f'目的変数の時間をずらす量（単位: {time_unit}）', min_value=-100, max_value=100, value=0, step=1)
+
+        # 遅れ時間を選択された単位に基づいてシフト
+        if time_unit == '秒':
+            shifted_target = df[target_var].shift(periods=time_lag, freq='S')
+        elif time_unit == '分':
+            shifted_target = df[target_var].shift(periods=time_lag, freq='T')
+        elif time_unit == '時間':
+            shifted_target = df[target_var].shift(periods=time_lag, freq='H')
+        elif time_unit == '日':
+            shifted_target = df[target_var].shift(periods=time_lag, freq='D')
+        elif time_unit == '月':
+            shifted_target = df[target_var].shift(periods=time_lag, freq='M')
+        elif time_unit == '年':
+            shifted_target = df[target_var].shift(periods=time_lag, freq='Y')
 
         # 各説明変数の決定係数を計算して棒グラフで表示
-        st.subheader(f"遅れ時間 {time_lag} 時間における各説明変数の決定係数")
+        st.subheader(f"遅れ時間 {time_lag} {time_unit}における各説明変数の決定係数")
         r_squared_values = {}
         for col in df.columns:
             if col != target_var:
@@ -337,7 +351,7 @@ if page == "機能3: 時系列グラフと相関関係":
         ax1.bar(variables[:10], r_squared_scores[:10], color='skyblue')  # 上位10の説明変数を表示
         ax1.set_xlabel('説明変数')
         ax1.set_ylabel('決定係数 (R²)')
-        ax1.set_title(f'遅れ時間 {time_lag} 時間における決定係数の上位10変数')
+        ax1.set_title(f'遅れ時間 {time_lag} {time_unit}における決定係数の上位10変数')
         ax1.tick_params(axis='x', rotation=45)
         st.pyplot(fig1)
 
@@ -345,7 +359,7 @@ if page == "機能3: 時系列グラフと相関関係":
         explanatory_var = st.selectbox('表示させる説明変数を選択してください', variables)
 
         # 時系列グラフと決定係数のグラフ
-        st.subheader(f"{explanatory_var} の時系列グラフと決定係数（遅れ時間: {time_lag} 時間）")
+        st.subheader(f"{explanatory_var} の時系列グラフと決定係数（遅れ時間: {time_lag} {time_unit}）")
 
         fig2, axes = plt.subplots(nrows=2, ncols=2, figsize=(20, 10), gridspec_kw={'height_ratios': [1, 1]})
 
