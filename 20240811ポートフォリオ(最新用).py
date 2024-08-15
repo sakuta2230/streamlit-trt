@@ -597,9 +597,10 @@ if page == "機能7: コード表示":
     st.header("機能7: コード表示")
     # 現在のスクリプトファイルを読み込んで表示
     with open(__file__, 'r', encoding='utf-8') as f:
-        　code = f.read()
+        code = f.read()
 
     st.code(code, language='python')
+
 
 
 
