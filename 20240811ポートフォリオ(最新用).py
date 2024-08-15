@@ -141,7 +141,7 @@ selected_columns_dfs = []
 
 
 # メイン処理部分
-if page == "機能1":
+if page == "機能1: CSVファイル統合":
     st.header("機能1: CSVファイル統合")
 
     # 複数ファイルのアップロード
@@ -229,7 +229,7 @@ if page == "機能1":
 
 
 
-if page == "機能2":
+if page == "機能2: データの基本情報、基本統計量":
     st.header("機能2: データの基本情報、基本統計量")
 
     # ファイルアップローダー
@@ -294,8 +294,8 @@ if page == "機能2":
 
 
 
-if page == "機能4":
-    st.header("機能4: 目的変数の時間をずらして相関関係を確認")
+if page == "機能3: 時系列グラフと相関関係":
+    st.header("機能3:  時系列グラフと相関関係")
 
     # ファイルアップローダー
     uploaded_file = st.file_uploader("CSVファイルをアップロードしてください", type=['csv'])
@@ -376,8 +376,8 @@ if page == "機能4":
 
 
 
-if page == "機能5":
-    st.header("機能5: カテゴリ変数ごとに目的変数の箱ひげ図を表示")
+if page == "機能4: カテゴリ変数ごとの箱ひげ図":
+    st.header("機能4: カテゴリ変数ごとの箱ひげ図")
 
     # ファイルアップローダー
     uploaded_file = st.file_uploader("CSVファイルをアップロードしてください", type=['csv'])
@@ -421,9 +421,9 @@ if page == "機能5":
 
 
 
-# 機能6: 移動平均と移動分散の可視化
-if page == "機能6":
-    st.header("機能6: 移動平均と移動分散の可視化")
+# 機能5: 移動平均と移動分散の可視化
+if page == "機能5: 移動平均と移動分散の可視化":
+    st.header("機能5: 移動平均と移動分散の可視化")
 
     # ファイルアップローダー
     uploaded_file = st.file_uploader("CSVファイルをアップロードしてください", type=['csv'])
@@ -524,9 +524,9 @@ if page == "機能6":
 
 
 
-# 機能7: PLS分析と説明変数の影響度可視化
-if page == "機能7":
-    st.header("機能7: PLS分析と説明変数の影響度可視化")
+# 機能6: PLS分析と説明変数の影響度可視化
+if page == "機能6: PLS分析と説明変数の影響度可視化":
+    st.header("機能6: PLS分析と説明変数の影響度可視化")
 
     # ファイルアップローダー
     uploaded_file = st.file_uploader("CSVファイルをアップロードしてください", type=['csv'])
@@ -593,7 +593,13 @@ if page == "機能7":
             
             st.pyplot(fig)
 
+if page == "機能7: コード表示":
+    st.header("機能7: コード表示")
+    # 現在のスクリプトファイルを読み込んで表示
+          with open(__file__, 'r', encoding='utf-8') as f:
+              code = f.read()
 
+          st.code(code, language='python')
 
 
 
