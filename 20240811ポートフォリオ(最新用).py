@@ -227,12 +227,7 @@ if page == "機能1":
 # 機能2: データの可視化
 
 
-def read_csv_with_encoding(uploaded_file, encoding):
-    try:
-        return pd.read_csv(uploaded_file, encoding=encoding)
-    except (UnicodeDecodeError, pd.errors.EmptyDataError) as e:
-        st.write(f"{encoding}での読み込み中にエラーが発生しました: {e}")
-        return None
+
 
 if page == "機能2":
     st.header("機能2: データの基本情報、基本統計量")
