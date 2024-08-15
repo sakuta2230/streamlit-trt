@@ -220,49 +220,7 @@ if page == "機能1":
 
           st.code(code, language='python')
 
-# 目的変数が含まれたCSVファイルを読み込む部分は省略
 
-# 統合後のデータ
-if 'merged_df' in locals():
-    df3 = merged_df.copy()
-
-    # '年月日時'をインデックスに設定
-    if '年月日時' in df3.columns:
-        df3.set_index('年月日時', inplace=True)
-
-    # 目的変数の設定
-    target_var = st.selectbox('目的変数を選択してください', df3.columns)
-
-    # グラフの数とレイアウトの設定
-    num_vars = len(df3.columns)
-    fig, axes = plt.subplots(nrows=num_vars, ncols=2, figsize=(15, 5 * num_vars), sharex='col')
-
-    # 時系列データのプロット
-    for i, col in enumerate(df3.columns):
-        axes[i, 0].plot(df3.index, df3[col], label=col)
-        axes[i, 0].set_title(f'{col} の時系列データ')
-        axes[i, 0].set_ylabel(col)
-        axes[i, 0].legend()
-
-    # 相関係数の計算と相関グラフのプロット
-    for i, col in enumerate(df3.columns):
-        if col != target_var:
-          valid_data = df3[[col, target_var]].dropna()
-          correlation = df3[target_var].corr(df3[col])
-          axes[i, 1].scatter(df3[col], df3[target_var])
-          axes[i, 1].set_title(f'{col} と {target_var} の相関 (r={correlation:.2f})')
-          axes[i, 1].set_xlabel(col)
-          axes[i, 1].set_ylabel(target_var)
-            # 相関係数の表示
-          for x, y in zip(df3[col], df3[target_var]):
-                axes[i, 1].text(x, y, f'{correlation:.2f}', fontsize=8, alpha=0.5)
-
-    # タイトルとレイアウト調整
-    fig.suptitle('時系列データと相関グラフ', fontsize=16)
-    plt.tight_layout(rect=[0, 0.03, 1, 0.97])
-
-    # グラフをStreamlitに表示
-    st.pyplot(fig)
 
 
 
