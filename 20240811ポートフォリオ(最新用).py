@@ -290,10 +290,6 @@ if page == "機能2: データの基本情報、基本統計量":
             st.download_button(label="加工されたデータをCSVとしてダウンロード", data=csv, file_name='processed_data.csv', mime='text/csv')
 
 
-
-
-
-
 if page == "機能3: 時系列グラフと相関関係":
     st.header("機能3: 時系列グラフと相関関係")
 
@@ -361,31 +357,36 @@ if page == "機能3: 時系列グラフと相関関係":
         # 時系列グラフと決定係数のグラフ
         st.subheader(f"{explanatory_var} の時系列グラフと決定係数（遅れ時間: {time_lag} {time_unit}）")
 
-        fig2, axes = plt.subplots(nrows=2, ncols=2, figsize=(20, 10), gridspec_kw={'height_ratios': [1, 1]})
+        fig2, axes = plt.subplots(nrows=2, ncols=1, figsize=(20, 10))
 
         # 目的変数の時系列グラフ
-        axes[0, 0].plot(df.index, df[target_var], label=target_var, color='orange')
-        axes[0, 0].set_title(f'{target_var} の時系列データ')
-        axes[0, 0].set_ylabel(target_var)
-        axes[0, 0].legend()
+        axes[0].scatter(df.index, df[target_var], label=target_var, color='orange')
+        axes[0].set_title(f'{target_var} の時系列データ')
+        axes[0].set_ylabel(target_var)
+        axes[0].legend()
 
         # 説明変数の時系列グラフ
-        axes[1, 0].plot(df.index, df[explanatory_var], label=explanatory_var, color='blue')
-        axes[1, 0].set_title(f'{explanatory_var} の時系列データ')
-        axes[1, 0].set_ylabel(explanatory_var)
-        axes[1, 0].legend()
+        axes[1].scatter(df.index, df[explanatory_var], label=explanatory_var, color='blue')
+        axes[1].set_title(f'{explanatory_var} の時系列データ')
+        axes[1].set_ylabel(explanatory_var)
+        axes[1].legend()
 
         # 決定係数のグラフ
+        fig3, ax3 = plt.subplots(figsize=(10, 5))
         valid_data = pd.concat([df[explanatory_var], shifted_target], axis=1).dropna()
         correlation = valid_data[target_var].corr(valid_data[explanatory_var])
         r_squared = correlation ** 2
-        axes[1, 1].scatter(valid_data[explanatory_var], valid_data[target_var], alpha=0.5)
-        axes[1, 1].set_title(f'{explanatory_var} と {target_var} の決定係数 (R²={r_squared:.2f})')
-        axes[1, 1].set_xlabel(explanatory_var)
-        axes[1, 1].set_ylabel(target_var)
+        ax3.scatter(valid_data[explanatory_var], valid_data[target_var], alpha=0.5)
+        ax3.set_title(f'{explanatory_var} と {target_var} の決定係数 (R²={r_squared:.2f})')
+        ax3.set_xlabel(explanatory_var)
+        ax3.set_ylabel(target_var)
 
-        plt.tight_layout()
         st.pyplot(fig2)
+        st.pyplot(fig3)
+
+
+
+
 
 
 
