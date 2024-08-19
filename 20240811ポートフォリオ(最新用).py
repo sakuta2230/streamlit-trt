@@ -229,67 +229,6 @@ if page == "機能1: CSVファイル統合":
 
 
 
-if page == "機能2: データの基本情報、基本統計量":
-    st.header("機能2: データの基本情報、基本統計量")
-
-    # ファイルアップローダー
-    uploaded_file = st.file_uploader("CSVファイルをアップロードしてください", type=['csv'])
-
-    if uploaded_file:
-        # ファイルのバイナリデータを読み込む
-        raw_data = uploaded_file.getvalue()
-
-        # エンコーディングの検出
-        result = chardet.detect(raw_data)
-        detected_encoding = result['encoding']
-        st.write(f"検出されたエンコーディング: {detected_encoding}")
-
-        # ユーザーにエンコーディングを選択させる
-        encodings_to_try = [detected_encoding, 'utf-8-sig', 'shift-jis', 'Windows-1252', 'MacRoman']
-        manual_encoding = st.selectbox("手動でエンコーディングを選択してください", encodings_to_try)
-
-        # 選択されたエンコーディングでデータを読み込む
-        df = read_csv_with_encoding(uploaded_file, manual_encoding)
-        if df is not None:
-            st.write(f"選択された{manual_encoding}エンコーディングで読み込み成功")
-        else:
-            st.error(f"{manual_encoding}エンコーディングでも読み込みに失敗しました。")
-
-        if df is not None:
-            # データの基本情報の表示
-            st.subheader("データの基本情報")
-            st.write("データの型:")
-            st.write(df.dtypes)
-            st.write("欠損値の数:")
-            st.write(df.isnull().sum())
-            st.write("データの基本統計量:")
-            st.write(df.describe())
-
-            # 各列のヒストグラムの表示
-            st.subheader("各列のヒストグラム")
-            for col in df.select_dtypes(include=[np.number]).columns:
-                fig, ax = plt.subplots()
-                sns.histplot(df[col], kde=True, ax=ax)
-                ax.set_title(f"{col} のヒストグラム")
-                st.pyplot(fig)
-
-            # 欠損値の処理
-            st.subheader("欠損値の処理")
-            missing_option = st.selectbox("欠損値をどのように処理しますか？", ["平均値で埋める", "欠損値がある行を削除する"])
-
-            if missing_option == "平均値で埋める":
-                df = df.fillna(df.mean())
-            elif missing_option == "欠損値がある行を削除する":
-                df = df.dropna()
-
-            st.write("欠損値処理後のデータ")
-            st.write(df)
-
-            # 加工されたファイルをCSVとして保存する機能
-            csv = df.to_csv(index=False).encode('utf-8-sig')
-            st.download_button(label="加工されたデータをCSVとしてダウンロード", data=csv, file_name='processed_data.csv', mime='text/csv')
-
-
 if page == "機能3: 時系列グラフと相関関係":
     st.header("機能3: 時系列グラフと相関関係")
 
@@ -313,7 +252,7 @@ if page == "機能3: 時系列グラフと相関関係":
             df.set_index(time_column, inplace=True)
         except Exception:
             st.error("選択された列は時間を表す列ではありません。もう一度「時間を表す列を選択してください」。")
-            st.stop()  # 以降の処理を停止
+            st.stop()
 
         # 列の中から目的変数を選ぶ
         target_var = st.selectbox('目的変数を選択してください', df.columns)
@@ -321,7 +260,7 @@ if page == "機能3: 時系列グラフと相関関係":
         # エラーハンドリング：目的変数として時間列が選ばれた場合
         if target_var == time_column:
             st.error("時間を表す列は目的変数として選択できません。適切な列を選択してください。")
-            st.stop()  # 以降の処理を停止
+            st.stop()
 
         # 単位を選択
         time_unit = st.selectbox('遅れ時間の単位を選択してください', ['秒', '分', '時間', '日', '月', '年'])
@@ -343,24 +282,34 @@ if page == "機能3: 時系列グラフと相関関係":
         elif time_unit == '年':
             shifted_target = df[target_var].shift(periods=time_lag, freq='Y')
 
+        # NaN値の処理
+        if shifted_target.isna().sum() > 0:
+            st.warning(f"目的変数 {target_var} にNaN値が含まれています。計算結果に影響を与える可能性があります。")
+
         # 各説明変数の決定係数を計算して棒グラフで表示
         st.subheader(f"遅れ時間 {time_lag} {time_unit}における各説明変数の決定係数")
         r_squared_values = {}
         for col in df.columns:
             if col != target_var:
-                correlation = df[col].corr(shifted_target)
-                r_squared_values[col] = correlation ** 2
+                try:
+                    correlation = df[col].corr(shifted_target)
+                    r_squared_values[col] = correlation ** 2
+                except Exception:
+                    st.error(f"列 {col} に問題があるため、相関を計算できませんでした。")
 
-        sorted_r_squared = sorted(r_squared_values.items(), key=lambda item: item[1], reverse=True)
-        variables, r_squared_scores = zip(*sorted_r_squared)
+        if r_squared_values:
+            sorted_r_squared = sorted(r_squared_values.items(), key=lambda item: item[1], reverse=True)
+            variables, r_squared_scores = zip(*sorted_r_squared)
 
-        fig1, ax1 = plt.subplots(figsize=(10, 5))
-        ax1.bar(variables[:10], r_squared_scores[:10], color='skyblue')  # 上位10の説明変数を表示
-        ax1.set_xlabel('説明変数')
-        ax1.set_ylabel('決定係数 (R²)')
-        ax1.set_title(f'遅れ時間 {time_lag} {time_unit}における決定係数の上位10変数')
-        ax1.tick_params(axis='x', rotation=45)
-        st.pyplot(fig1)
+            fig1, ax1 = plt.subplots(figsize=(10, 5))
+            ax1.bar(variables[:10], r_squared_scores[:10], color='skyblue')  # 上位10の説明変数を表示
+            ax1.set_xlabel('説明変数')
+            ax1.set_ylabel('決定係数 (R²)')
+            ax1.set_title(f'遅れ時間 {time_lag} {time_unit}における決定係数の上位10変数')
+            ax1.tick_params(axis='x', rotation=45)
+            st.pyplot(fig1)
+        else:
+            st.error("決定係数の計算に失敗しました。適切な列を選択してください。")
 
         # 列の中から表示させる説明変数を選ぶ
         explanatory_var = st.selectbox('表示させる説明変数を選択してください', variables)
@@ -394,7 +343,6 @@ if page == "機能3: 時系列グラフと相関関係":
 
         st.pyplot(fig2)
         st.pyplot(fig3)
-
 
 
 
