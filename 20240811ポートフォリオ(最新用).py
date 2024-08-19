@@ -304,13 +304,24 @@ if page == "機能3: 時系列グラフと相関関係":
         st.subheader("各列の欠損値の数")
         st.write(df.isnull().sum())
 
+        # 時間を表す列をインデックスにセットする機能
+        time_column = st.selectbox('時間を表す列を選択してください', df.columns)
+        
+        # エラーハンドリング：選択された列がdatetime型に変換できない場合
+        try:
+            df[time_column] = pd.to_datetime(df[time_column], errors='raise')
+            df.set_index(time_column, inplace=True)
+        except Exception:
+            st.error("選択された列は時間を表す列ではありません。もう一度「時間を表す列を選択してください」。")
+            st.stop()  # 以降の処理を停止
+
         # 列の中から目的変数を選ぶ
         target_var = st.selectbox('目的変数を選択してください', df.columns)
 
-        # 時間を表す列をインデックスにセットする機能
-        time_column = st.selectbox('時間を表す列を選択してください', df.columns)
-        df[time_column] = pd.to_datetime(df[time_column], errors='coerce')
-        df.set_index(time_column, inplace=True)
+        # エラーハンドリング：目的変数として時間列が選ばれた場合
+        if target_var == time_column:
+            st.error("時間を表す列は目的変数として選択できません。適切な列を選択してください。")
+            st.stop()  # 以降の処理を停止
 
         # 単位を選択
         time_unit = st.selectbox('遅れ時間の単位を選択してください', ['秒', '分', '時間', '日', '月', '年'])
