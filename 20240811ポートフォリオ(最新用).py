@@ -225,6 +225,65 @@ if page == "機能1: CSVファイル統合":
 
 
 # 機能2: データの可視化
+if page == "機能2":
+    st.header("機能2: データの基本情報、基本統計量")
+
+    # ファイルアップローダー
+    uploaded_file = st.file_uploader("CSVファイルをアップロードしてください", type=['csv'])
+
+    if uploaded_file:
+        # ファイルのバイナリデータを読み込む
+        raw_data = uploaded_file.getvalue()
+
+        # エンコーディングの検出
+        result = chardet.detect(raw_data)
+        detected_encoding = result['encoding']
+        st.write(f"検出されたエンコーディング: {detected_encoding}")
+
+        # ユーザーにエンコーディングを選択させる
+        encodings_to_try = [detected_encoding, 'utf-8-sig', 'shift-jis', 'Windows-1252', 'MacRoman']
+        manual_encoding = st.selectbox("手動でエンコーディングを選択してください", encodings_to_try)
+
+        # 選択されたエンコーディングでデータを読み込む
+        df = read_csv_with_encoding(uploaded_file, manual_encoding)
+        if df is not None:
+            st.write(f"選択された{manual_encoding}エンコーディングで読み込み成功")
+        else:
+            st.error(f"{manual_encoding}エンコーディングでも読み込みに失敗しました。")
+
+        if df is not None:
+            # データの基本情報の表示
+            st.subheader("データの基本情報")
+            st.write("データの型:")
+            st.write(df.dtypes)
+            st.write("欠損値の数:")
+            st.write(df.isnull().sum())
+            st.write("データの基本統計量:")
+            st.write(df.describe())
+
+            # 各列のヒストグラムの表示
+            st.subheader("各列のヒストグラム")
+            for col in df.select_dtypes(include=[np.number]).columns:
+                fig, ax = plt.subplots()
+                sns.histplot(df[col], kde=True, ax=ax)
+                ax.set_title(f"{col} のヒストグラム")
+                st.pyplot(fig)
+
+            # 欠損値の処理
+            st.subheader("欠損値の処理")
+            missing_option = st.selectbox("欠損値をどのように処理しますか？", ["平均値で埋める", "欠損値がある行を削除する"])
+
+            if missing_option == "平均値で埋める":
+                df = df.fillna(df.mean())
+            elif missing_option == "欠損値がある行を削除する":
+                df = df.dropna()
+
+            st.write("欠損値処理後のデータ")
+            st.write(df)
+
+            # 加工されたファイルをCSVとして保存する機能
+            csv = df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(label="加工されたデータをCSVとしてダウンロード", data=csv, file_name='processed_data.csv', mime='text/csv')
 
 
 
