@@ -8,6 +8,7 @@ import seaborn as sns
 import chardet
 from sklearn.preprocessing import StandardScaler
 from sklearn.cross_decomposition import PLSRegression
+from statsmodels.graphics.tsaplots import plot_acf
 
 
 # データフレームの作成（ここではdfという名前のデータフレームとしま
@@ -321,7 +322,7 @@ if page == "機能3: 時系列グラフと相関関係":
             st.error("時間を表す列は目的変数として選択できません。適切な列を選択してください。")
             st.stop()
 
-    　　 from statsmodels.graphics.tsaplots import plot_acf
+    　　 
         
 
         st.subheader("コレログラム（ACFプロット）")
