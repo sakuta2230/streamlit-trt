@@ -321,10 +321,7 @@ if page == "機能3: 時系列グラフと相関関係":
         if target_var == time_column:
             st.error("時間を表す列は目的変数として選択できません。適切な列を選択してください。")
             st.stop()
-
-    　　 
         
-
         st.subheader("コレログラム（ACFプロット）")
         fig, ax = plt.subplots()
         plot_acf(df[target_var], ax=ax)
