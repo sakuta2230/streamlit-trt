@@ -321,6 +321,14 @@ if page == "機能3: 時系列グラフと相関関係":
             st.error("時間を表す列は目的変数として選択できません。適切な列を選択してください。")
             st.stop()
 
+    　　 from statsmodels.graphics.tsaplots import plot_acf
+        
+
+        st.subheader("コレログラム（ACFプロット）")
+        fig, ax = plt.subplots()
+        plot_acf(df[target_var], ax=ax)
+        st.pyplot(fig)
+
         # 単位を選択
         time_unit = st.selectbox('遅れ時間の単位を選択してください', ['秒', '分', '時間', '日', '月', '年'])
 
