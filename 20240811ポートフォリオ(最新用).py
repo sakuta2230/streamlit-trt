@@ -510,41 +510,42 @@ if page == "機能5: 移動平均と移動分散の可視化":
         # 移動平均の時系列グラフ
         st.subheader(f"{target_var} の移動平均")
         fig1, ax1 = plt.subplots(figsize=(15, 5))
-
-        ax1.plot(df.index, df[target_var], label=target_var, color='blue', alpha=0.5)
-        ax1.plot(df.index, df['Moving Average'], label='Moving Average', color='green')
+        
+        ax1.plot(df.index, df[target_var], label=target_var, color='blue', marker='o', linestyle='None', alpha=0.5)
+        ax1.plot(df.index, df['Moving Average'], label='Moving Average', color='green', marker='o', linestyle='None')
         ax1.set_xlabel('Date')
         ax1.set_ylabel(target_var, color='blue')
         ax1.legend(loc='upper left')
-
+        
         st.pyplot(fig1)
-
+        
         # 移動分散の時系列グラフ
         st.subheader(f"{target_var} の移動分散")
         fig2, ax2 = plt.subplots(figsize=(15, 5))
-
-        ax2.plot(df.index, df[target_var], label=target_var, color='blue', alpha=0.5)
+        
+        ax2.plot(df.index, df[target_var], label=target_var, color='blue', marker='o', linestyle='None', alpha=0.5)
         ax2.set_xlabel('Date')
         ax2.set_ylabel(target_var, color='blue')
         ax2.legend(loc='upper left')
-
+        
         ax3 = ax2.twinx()
-        ax3.plot(df.index, df['Moving Variance'], label='Moving Variance', color='red')
+        ax3.plot(df.index, df['Moving Variance'], label='Moving Variance', color='red', marker='o', linestyle='None')
         ax3.set_ylabel('Moving Variance', color='red')
         ax3.legend(loc='upper right')
-
+        
         st.pyplot(fig2)
-
+        
         # 変動係数の時系列グラフ
         st.subheader(f"{target_var} の変動係数")
         fig3, ax4 = plt.subplots(figsize=(15, 5))
-
-        ax4.plot(df.index, df['Coefficient of Variation'], label='Coefficient of Variation', color='purple')
+        
+        ax4.plot(df.index, df['Coefficient of Variation'], label='Coefficient of Variation', color='purple', marker='o', linestyle='None')
         ax4.set_xlabel('Date')
         ax4.set_ylabel('Coefficient of Variation', color='purple')
         ax4.legend(loc='upper right')
-
+        
         st.pyplot(fig3)
+
 
         # 移動平均の最大値、最小値、中央値を計算
         max_avg = df['Moving Average'].max()
