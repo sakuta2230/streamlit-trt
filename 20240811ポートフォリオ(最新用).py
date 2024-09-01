@@ -9,6 +9,8 @@ import chardet
 from sklearn.preprocessing import StandardScaler
 from sklearn.cross_decomposition import PLSRegression
 from statsmodels.graphics.tsaplots import plot_acf
+from statsmodels.tsa.stattools import ccf
+
 
 
 # データフレームの作成（ここではdfという名前のデータフレームとしま
