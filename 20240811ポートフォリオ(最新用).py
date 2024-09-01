@@ -396,6 +396,8 @@ if page == "機能3: 時系列グラフと相関関係":
         axes[1].set_ylabel(explanatory_var)
         axes[1].legend()
 
+        st.pyplot(fig2)
+
         # 決定係数のグラフ
         fig3, ax3 = plt.subplots(figsize=(10, 5))
         valid_data = pd.concat([df[explanatory_var], shifted_target], axis=1).dropna()
@@ -406,8 +408,18 @@ if page == "機能3: 時系列グラフと相関関係":
         ax3.set_xlabel(explanatory_var)
         ax3.set_ylabel(target_var)
 
-        st.pyplot(fig2)
         st.pyplot(fig3)
+
+        # クロス相関関数 (CCF) のプロット
+        st.subheader(f"{explanatory_var} と {target_var} のクロス相関関数（CCF）")
+        fig4, ax4 = plt.subplots(figsize=(10, 5))
+        ccf_values = ccf(df[explanatory_var], df[target_var])
+        ax4.bar(range(len(ccf_values)), ccf_values, color='purple')
+        ax4.set_xlabel('ラグ')
+        ax4.set_ylabel('相関')
+        ax4.set_title(f'{explanatory_var} と {target_var} のクロス相関関数 (CCF)')
+        st.pyplot(fig4)
+
 
 
 
